@@ -37,7 +37,6 @@ CLUSTER_INFO = {
         "short": "Kecemasan dan keluhan fisik",
         "description": "Klaster ini merepresentasikan teks dengan pola kecemasan yang disertai keluhan fisik, seperti napas sesak, jantung berdebar, badan lemas, dan pikiran negatif.",
         "keywords": ["cemas lebih", "sesak nafas", "cemas takut", "badan lemas", "jantung debar"],
-        "recommendation": "Catat kapan keluhan muncul, situasi pemicunya, dan intensitasnya. Jika keluhan sering terjadi atau mengganggu aktivitas, pertimbangkan untuk berkonsultasi dengan psikolog atau psikiater.",
         "color": "#159947",
         "soft": "#e8f8ee",
     },
@@ -46,7 +45,6 @@ CLUSTER_INFO = {
         "short": "Distres emosional dan konflik sosial",
         "description": "Klaster ini menggambarkan teks dengan tekanan emosional, keluh kesah, konflik interpersonal, sudut pandang, dan ekspresi emosi negatif.",
         "keywords": ["putus asa", "keluh kesah", "caci maki", "sudut pandang", "sesak nafas"],
-        "recommendation": "Coba kenali sumber tekanan, beri jeda sebelum mengambil keputusan, dan ceritakan kondisi kepada orang yang dipercaya. Jika tekanan berlangsung lama, konsultasi profesional dapat dipertimbangkan.",
         "color": "#2563eb",
         "soft": "#eaf1ff",
     },
@@ -55,7 +53,6 @@ CLUSTER_INFO = {
         "short": "Keputusasaan dan krisis",
         "description": "Klaster ini berisi pola teks yang berkaitan dengan keputusasaan, kehilangan arah, keinginan pergi, dan indikasi krisis psikologis yang lebih kuat.",
         "keywords": ["putus asa", "sehat mental", "hilang arah", "keluh kesah", "ingin pergi"],
-        "recommendation": "Kondisi ini perlu diperhatikan lebih serius. Segera cari dukungan dari orang terdekat atau tenaga profesional, terutama jika muncul pikiran untuk menyakiti diri sendiri.",
         "color": "#7c3aed",
         "soft": "#f2eafe",
     },
@@ -81,6 +78,8 @@ DISCLAIMER = (
     "Hasil pemetaan ini bukan diagnosis klinis dan tidak dapat menggantikan pemeriksaan oleh psikolog atau psikiater. "
     "Aplikasi hanya menunjukkan kemiripan pola teks dengan klaster yang terbentuk dalam penelitian."
 )
+
+RESULT_NOTE = "Catatan ini bukan diagnosis klinis dan bukan pengganti konsultasi dengan psikolog atau psikiater."
 
 # =========================
 # STREAMLIT CONFIG & STYLE
@@ -767,14 +766,11 @@ def page_input():
         html(
             f"""
             <div class="card-html" style="border-left:5px solid {info['color']};">
-                <div class="card-title">📝 Rekomendasi Umum</div>
-                <div class="muted">{info['recommendation']}</div>
-                <div style="height:.85rem;"></div>
-                <div class="muted"><b>Catatan:</b> rekomendasi ini bersifat umum, bukan saran medis dan bukan diagnosis.</div>
+                <div class="card-title">Catatan</div>
+                <div class="muted">{RESULT_NOTE}</div>
             </div>
             """
         )
-
 
 
 def render_cluster_overview():
