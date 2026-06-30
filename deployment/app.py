@@ -56,6 +56,16 @@ VALIDATION_METRICS = {
     "davies": 0.8472,
 }
 
+RESEARCH_INFO = {
+    "title": "Pengelompokan Gejala Gangguan Kesehatan Mental Berdasarkan Curahan Hati Pengguna di Media Sosial Menggunakan Algoritma K-Means Clustering",
+    "author": "Shalvia Retno Salsabil",
+    "student_id": "1202220027",
+    "program": "S1 Sistem Informasi",
+    "faculty": "Fakultas Rekayasa Industri",
+    "university": "Universitas Telkom",
+    "year": "2026",
+}
+
 st.set_page_config(
     page_title="Mental Health Clustering",
     page_icon="MH",
@@ -150,12 +160,12 @@ def render_sidebar():
     st.sidebar.markdown('<div class="sidebar-logo">MH</div><div class="sidebar-title">Mental Health<br/>Clustering</div>', unsafe_allow_html=True)
     page = st.sidebar.radio(
         "Navigasi",
-        ["Input Teks", "Hasil Klastering", "Validasi Psikolog"],
+        ["Input Teks", "Hasil Klastering", "Validasi Psikolog", "Tentang Penelitian"],
         label_visibility="collapsed",
     )
     st.sidebar.markdown("<hr/>", unsafe_allow_html=True)
     st.sidebar.markdown(
-        '<div class="small-muted"><b>Proyek Akhir</b><br/>Pemetaan teks ke klaster gejala kesehatan mental berdasarkan hasil penelitian.</div>',
+        f'<div class="small-muted"><b>Tugas Akhir</b><br/>{RESEARCH_INFO["author"]}<br/>{RESEARCH_INFO["student_id"]}<br/><br/>Pemetaan teks ke klaster gejala kesehatan mental berdasarkan hasil penelitian.</div>',
         unsafe_allow_html=True,
     )
     return page
@@ -462,10 +472,48 @@ def page_validation():
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+def page_about():
+    st.markdown("# Tentang Penelitian")
+    st.markdown('<div class="small-muted">Informasi singkat mengenai Tugas Akhir dan aplikasi pemetaan klaster gejala kesehatan mental.</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="card"><h3>Identitas Tugas Akhir</h3>', unsafe_allow_html=True)
+    st.markdown(f"### {RESEARCH_INFO['title']}")
+    rows = [
+        ("Penulis", RESEARCH_INFO["author"]),
+        ("NIM", RESEARCH_INFO["student_id"]),
+        ("Program Studi", RESEARCH_INFO["program"]),
+        ("Fakultas", RESEARCH_INFO["faculty"]),
+        ("Universitas", RESEARCH_INFO["university"]),
+        ("Tahun", RESEARCH_INFO["year"]),
+    ]
+    for label, value in rows:
+        st.markdown(f'<div class="cluster-row" style="grid-template-columns:180px 1fr;"><b>{label}</b><span>{value}</span></div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns([1.1, 1])
+    with col1:
+        st.markdown('<div class="card"><h3>Ringkasan Penelitian</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="small-muted">Penelitian ini mengelompokkan teks curahan hati pengguna media sosial ke dalam klaster gejala gangguan kesehatan mental. Data teks diproses melalui normalisasi, tokenisasi, stopword removal, dan lemmatization, kemudian direpresentasikan menggunakan Word2Vec. Hasil representasi teks dikelompokkan dengan algoritma K-Means untuk menemukan pola gejala yang muncul pada data.</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="card"><h3>Tujuan Aplikasi</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="small-muted">Aplikasi ini menampilkan hasil penelitian secara interaktif: pengguna dapat memasukkan teks, melihat klaster yang paling sesuai, mengeksplorasi visualisasi hasil klastering, serta melihat ringkasan validasi psikolog.</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="card"><h3>Hasil Utama</h3>', unsafe_allow_html=True)
+    cols = st.columns(3)
+    for idx, (cid, info) in enumerate(CLUSTER_INFO.items()):
+        with cols[idx]:
+            st.markdown(f'<div class="info-box" style="border-left:4px solid {info["color"]};"><span class="badge" style="background:{info["color"]};">{cid}</span><h3 style="color:{info["color"]};">Cluster {cid}</h3><b>{info["title"]}</b><br/><span class="small-muted">{info["short"]}</span></div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
 page = render_sidebar()
 if page == "Input Teks":
     page_input()
 elif page == "Hasil Klastering":
     page_results()
-else:
+elif page == "Validasi Psikolog":
     page_validation()
+else:
+    page_about()
