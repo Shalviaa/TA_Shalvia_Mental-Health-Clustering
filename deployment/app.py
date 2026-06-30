@@ -1,6 +1,7 @@
 
 from pathlib import Path
 from collections import Counter
+import html
 import re
 import string
 
@@ -18,6 +19,8 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 KAMUS_DIR = DATA_DIR / "kamus"
 VALIDASI_DIR = DATA_DIR / "validasi"
+ASSET_DIR = BASE_DIR / "assets"
+LOGO_PATH = ASSET_DIR / "telkom_university_logo.svg"
 
 CLUSTER_PATH = DATA_DIR / "hasil_clustering_w2v_tuned_pca100.csv"
 TUNING_PATH = DATA_DIR / "bigrams_w2v_tuning_results_pca100.csv"
@@ -29,6 +32,7 @@ CLUSTER_INFO = {
         "short": "Kecemasan dan keluhan fisik",
         "description": "Klaster gejala terkait kecemasan dan keluhan fisik seperti napas sesak, jantung berdebar, lemas, dan pikiran negatif.",
         "keywords": ["cemas lebih", "sesak nafas", "cemas takut", "badan lemas", "jantung debar"],
+        "recommendation": "Kelola kecemasan dengan latihan napas, istirahat cukup, mencatat pemicu, dan mencari bantuan profesional jika gejala fisik atau cemas terasa berat.",
         "color": "#159947",
         "soft": "#e8f8ee",
     },
@@ -37,6 +41,7 @@ CLUSTER_INFO = {
         "short": "Distres emosional dan konflik sosial",
         "description": "Klaster tekanan emosional, keluh kesah, konflik interpersonal, sudut pandang, dan ekspresi emosi negatif.",
         "keywords": ["putus asa", "keluh kesah", "caci maki", "sudut pandang", "sesak nafas"],
+        "recommendation": "Bangun dukungan sosial, ekspresikan emosi secara aman, kurangi konflik yang memicu tekanan, dan pertimbangkan konseling jika tekanan berulang.",
         "color": "#2563eb",
         "soft": "#eaf1ff",
     },
@@ -45,6 +50,7 @@ CLUSTER_INFO = {
         "short": "Keputusasaan dan krisis",
         "description": "Klaster keputusasaan, kehilangan arah, keinginan pergi, dan indikasi krisis psikologis yang lebih kuat.",
         "keywords": ["putus asa", "sehat mental", "hilang arah", "keluh kesah", "ingin pergi"],
+        "recommendation": "Cari dukungan segera dari orang tepercaya atau layanan profesional. Jika muncul pikiran menyakiti diri, hubungi bantuan darurat/tenaga kesehatan terdekat.",
         "color": "#7c3aed",
         "soft": "#f2eafe",
     },
@@ -150,6 +156,10 @@ textarea { border-radius: 10px !important; }
 }
 .sidebar-title { font-size:1.5rem; font-weight:850; line-height:1.1; margin-bottom:2rem; color:#06133a; }
 .sidebar-logo { font-size:2.6rem; color:#7c3aed; margin-bottom:.5rem; }
+.plain-section { margin: 1.5rem 0 1.8rem; }
+.example-text { padding: .85rem 0; border-bottom: 1px solid #e2e8f0; color: #33415f; line-height: 1.55; }
+.warning-note { border-left: 4px solid #dc2626; padding: .85rem 1rem; background: #fff7f7; color: #7f1d1d; border-radius: 8px; }
+.logo-caption { color:#64748b; font-size:.86rem; margin-top:.25rem; }
 hr { border: none; border-top: 1px solid #e0e7f0; margin: 1rem 0; }
 </style>
 """
@@ -157,6 +167,9 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 
 def render_sidebar():
+    if LOGO_PATH.exists():
+        st.sidebar.image(str(LOGO_PATH), width=150)
+        st.sidebar.markdown('<div class="logo-caption">Telkom University</div>', unsafe_allow_html=True)
     st.sidebar.markdown('<div class="sidebar-logo">MH</div><div class="sidebar-title">Mental Health<br/>Clustering</div>', unsafe_allow_html=True)
     page = st.sidebar.radio(
         "Navigasi",
@@ -331,58 +344,73 @@ def top_bigrams_by_cluster(df, cluster_id, n=5):
     return Counter(zip(words, words[1:])).most_common(n)
 
 
+def dataset_summary(df):
+    counts = df["cluster"].value_counts().sort_index()
+    return {
+        "total": len(df),
+        "columns": ", ".join(df.columns[:3]),
+        "clusters": len(counts),
+        "counts": counts,
+    }
+
+
+def raw_examples_by_cluster(df, cluster_id, n=3):
+    source = df.loc[df["cluster"] == cluster_id, "post_text"].dropna().astype(str)
+    examples = []
+    for value in source:
+        clean = " ".join(value.split())
+        if len(clean) > 25:
+            examples.append(html.escape(clean[:360] + ("..." if len(clean) > 360 else "")))
+        if len(examples) >= n:
+            break
+    return examples
+
+
 def page_input():
     st.markdown("# Pemetaan Teks ke Klaster Gejala Kesehatan Mental")
     st.markdown('<div class="small-muted">Masukkan teks/curhatan, lalu sistem akan menunjukkan klaster yang paling sesuai dengan hasil penelitian.</div>', unsafe_allow_html=True)
 
     default_text = "Akhir-akhir ini saya sering merasa cemas tanpa alasan yang jelas. Jantung saya berdebar-debar, napas terasa sesak, dan badan jadi lemas. Saya sulit tidur dan sering kepikiran hal-hal buruk terus-menerus."
-    with st.container():
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        text = st.text_area("Masukan Teks", value=default_text, height=150)
-        run = st.button("Lihat Klaster", type="primary", use_container_width=False)
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    text = st.text_area("Masukan Teks", value=default_text, height=150)
+    run = st.button("Lihat Klaster", type="primary", use_container_width=False)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     if run or text.strip():
         cluster_id, normalized, tokens, raw_scores, scores = predict_cluster(text)
         info = CLUSTER_INFO[cluster_id]
-        cols = st.columns([1, 5])
-        with cols[0]:
-            st.markdown(
-                f'<div class="card" style="text-align:center;background:{info["soft"]};"><div style="font-size:3rem;color:{info["color"]};font-weight:900;">{cluster_id}</div><b>Cluster</b></div>',
-                unsafe_allow_html=True,
-            )
-        with cols[1]:
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.markdown(f'<div class="small-muted">Teks ini dipetakan ke</div><div class="result-title" style="color:{info["color"]};">Cluster {cluster_id} <span class="success-chip">Paling Sesuai</span></div>', unsafe_allow_html=True)
-            st.markdown(f"### {info['title']}")
-            st.markdown(f'<div class="small-muted">{info["description"]}</div><hr/>', unsafe_allow_html=True)
-            st.markdown("**Kata Kunci Terkait**")
-            st.markdown(" ".join([f'<span class="pill">{kw}</span>' for kw in info["keywords"]]), unsafe_allow_html=True)
-            with st.expander("Lihat teks setelah normalisasi"):
-                st.write(normalized if normalized else "Tidak ada token yang cocok setelah preprocessing.")
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="plain-section">', unsafe_allow_html=True)
+        st.markdown(f'<div class="small-muted">Teks ini dipetakan ke</div><div class="result-title" style="color:{info["color"]};">Cluster {cluster_id} <span class="success-chip">Paling Sesuai</span></div>', unsafe_allow_html=True)
+        st.markdown(f"### {info['title']}")
+        st.markdown(f'<div class="small-muted">{info["description"]}</div>', unsafe_allow_html=True)
+        st.markdown("**Kata Kunci Terkait**")
+        st.markdown(" ".join([f'<span class="pill">{kw}</span>' for kw in info["keywords"]]), unsafe_allow_html=True)
+        st.markdown("**Rekomendasi Umum**")
+        st.markdown(f'<div class="small-muted">{info["recommendation"]}</div>', unsafe_allow_html=True)
+        with st.expander("Lihat teks setelah normalisasi"):
+            st.write(normalized if normalized else "Tidak ada token yang cocok setelah preprocessing.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        score_df = pd.DataFrame({
-            "Klaster": [f"Cluster {i}" for i in sorted(scores)],
-            "Skor Kesesuaian": [scores[i] for i in sorted(scores)],
-        })
-        fig = px.bar(score_df, x="Klaster", y="Skor Kesesuaian", color="Klaster", text_auto=".2f")
-        fig.update_layout(showlegend=False, height=320, margin=dict(l=20, r=20, t=25, b=20), yaxis_tickformat=".0%")
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown('<div class="card"><h3>Daftar Klaster</h3>', unsafe_allow_html=True)
+    st.markdown('## Daftar Klaster')
     for cid, info in CLUSTER_INFO.items():
         st.markdown(
             f'<div class="cluster-row"><span class="badge" style="background:{info["color"]};">{cid}</span><b>Cluster {cid} - {info["title"]}</b><span class="small-muted">{info["description"]}</span></div>',
             unsafe_allow_html=True,
         )
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def page_results():
     st.markdown("# Hasil Klastering Penelitian")
     st.markdown('<div class="small-muted">Visualisasi utama untuk memahami struktur klaster hasil penelitian.</div>', unsafe_allow_html=True)
     df = load_cluster_data()
+    summary = dataset_summary(df)
+    st.markdown("## Informasi Dataset")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Data", f"{summary['total']:,}")
+    c2.metric("Jumlah Klaster", summary["clusters"])
+    c3.metric("Kolom Utama", summary["columns"])
+    st.markdown('<div class="small-muted">Dataset yang ditampilkan berasal dari hasil clustering penelitian dan memuat teks raw, hasil lemma, serta label klaster.</div>', unsafe_allow_html=True)
+
     plot_df, metrics_df = compute_visual_data()
 
     col1, col2 = st.columns(2)
@@ -422,7 +450,7 @@ def page_results():
             )
         st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="card"><h3>Top Bigram per Klaster</h3>', unsafe_allow_html=True)
+    st.markdown("## Top Bigram per Klaster")
     cols = st.columns(3)
     for idx, cid in enumerate(CLUSTER_INFO):
         with cols[idx]:
@@ -430,7 +458,12 @@ def page_results():
             st.markdown(f'**Cluster {cid} - {info["title"]}**')
             for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 5):
                 st.markdown(f'<span class="pill">{w1} {w2} ({freq})</span>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("## Contoh Kalimat Raw per Klaster")
+    for cid, info in CLUSTER_INFO.items():
+        with st.expander(f'Cluster {cid} - {info["title"]}', expanded=(cid == 0)):
+            for example in raw_examples_by_cluster(df, cid, 3):
+                st.markdown(f'<div class="example-text">{example}</div>', unsafe_allow_html=True)
 
 
 def page_validation():
@@ -476,7 +509,10 @@ def page_about():
     st.markdown("# Tentang Penelitian")
     st.markdown('<div class="small-muted">Informasi singkat mengenai Tugas Akhir dan aplikasi pemetaan klaster gejala kesehatan mental.</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="card"><h3>Identitas Tugas Akhir</h3>', unsafe_allow_html=True)
+    if LOGO_PATH.exists():
+        st.image(str(LOGO_PATH), width=180)
+
+    st.markdown("## Identitas Tugas Akhir")
     st.markdown(f"### {RESEARCH_INFO['title']}")
     rows = [
         ("Penulis", RESEARCH_INFO["author"]),
@@ -488,24 +524,33 @@ def page_about():
     ]
     for label, value in rows:
         st.markdown(f'<div class="cluster-row" style="grid-template-columns:180px 1fr;"><b>{label}</b><span>{value}</span></div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
-    col1, col2 = st.columns([1.1, 1])
-    with col1:
-        st.markdown('<div class="card"><h3>Ringkasan Penelitian</h3>', unsafe_allow_html=True)
-        st.markdown('<div class="small-muted">Penelitian ini mengelompokkan teks curahan hati pengguna media sosial ke dalam klaster gejala gangguan kesehatan mental. Data teks diproses melalui normalisasi, tokenisasi, stopword removal, dan lemmatization, kemudian direpresentasikan menggunakan Word2Vec. Hasil representasi teks dikelompokkan dengan algoritma K-Means untuk menemukan pola gejala yang muncul pada data.</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col2:
-        st.markdown('<div class="card"><h3>Tujuan Aplikasi</h3>', unsafe_allow_html=True)
-        st.markdown('<div class="small-muted">Aplikasi ini menampilkan hasil penelitian secara interaktif: pengguna dapat memasukkan teks, melihat klaster yang paling sesuai, mengeksplorasi visualisasi hasil klastering, serta melihat ringkasan validasi psikolog.</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("## Tentang Aplikasi")
+    st.markdown(
+        '<div class="small-muted">Aplikasi ini merupakan media presentasi hasil Tugas Akhir yang mengelompokkan curahan hati pengguna media sosial ke dalam klaster gejala kesehatan mental. Sistem menggunakan hasil preprocessing teks, representasi Word2Vec, dan K-Means Clustering untuk memetakan teks baru ke klaster yang paling mendekati pola data penelitian.</div>',
+        unsafe_allow_html=True,
+    )
 
-    st.markdown('<div class="card"><h3>Hasil Utama</h3>', unsafe_allow_html=True)
+    st.markdown("## Disclaimer")
+    st.markdown(
+        '<div class="warning-note"><b>Hasil aplikasi ini bukan diagnosis klinis.</b><br/>Klaster yang tampil hanya menunjukkan kemiripan pola teks terhadap hasil penelitian. Untuk penilaian kondisi psikologis, pengguna tetap perlu berkonsultasi dengan psikolog, psikiater, atau tenaga kesehatan profesional.</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("## Rekomendasi Umum per Klaster")
+    for cid, info in CLUSTER_INFO.items():
+        st.markdown(
+            f'<div class="cluster-row"><span class="badge" style="background:{info["color"]};">{cid}</span><b>Cluster {cid} - {info["title"]}</b><span class="small-muted">{info["recommendation"]}</span></div>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("## Hasil Utama")
     cols = st.columns(3)
     for idx, (cid, info) in enumerate(CLUSTER_INFO.items()):
         with cols[idx]:
-            st.markdown(f'<div class="info-box" style="border-left:4px solid {info["color"]};"><span class="badge" style="background:{info["color"]};">{cid}</span><h3 style="color:{info["color"]};">Cluster {cid}</h3><b>{info["title"]}</b><br/><span class="small-muted">{info["short"]}</span></div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(f'**Cluster {cid}**')
+            st.markdown(f'<span class="pill">{info["title"]}</span>', unsafe_allow_html=True)
+            st.markdown(f'<div class="small-muted">{info["short"]}</div>', unsafe_allow_html=True)
 
 
 page = render_sidebar()
