@@ -1,5 +1,6 @@
 from pathlib import Path
 from collections import Counter
+import html as html_lib
 import re
 import string
 
@@ -20,6 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 KAMUS_DIR = DATA_DIR / "kamus"
 VALIDASI_DIR = DATA_DIR / "validasi"
+LOGO_PATH = DATA_DIR / "Telkom University logo.png"
 
 CLUSTER_PATH = DATA_DIR / "hasil_clustering_w2v_tuned_pca100.csv"
 TUNING_PATH = DATA_DIR / "bigrams_w2v_tuning_results_pca100.csv"
@@ -439,9 +441,12 @@ def render_hero(title: str, subtitle: str, tag: str = "Tugas Akhir · K-Means Cl
 
 
 def render_sidebar():
+    if LOGO_PATH.exists():
+        st.sidebar.image(str(LOGO_PATH), width=150)
+    else:
+        st.sidebar.markdown('<div class="sidebar-logo">MH</div>', unsafe_allow_html=True)
     st.sidebar.markdown(
         """
-        <div class="sidebar-logo">MH</div>
         <div class="sidebar-title">Mental Health<br/>Clustering</div>
         <div class="sidebar-subtitle">Demo interaktif hasil penelitian clustering teks kesehatan mental.</div>
         """,
@@ -635,6 +640,21 @@ def compute_visual_data():
 def top_bigrams_by_cluster(df, cluster_id, n=5):
     words = " ".join(df.loc[df["cluster"] == cluster_id, "lemmas"].dropna().astype(str)).split()
     return Counter(zip(words, words[1:])).most_common(n)
+
+
+def raw_examples_by_cluster(df, cluster_id, n=15):
+    source = df.loc[df["cluster"] == cluster_id, "post_text"].dropna().astype(str)
+    examples = []
+    seen = set()
+    for value in source:
+        clean = " ".join(value.split())
+        if len(clean) < 20 or clean in seen:
+            continue
+        seen.add(clean)
+        examples.append(html_lib.escape(clean))
+        if len(examples) >= n:
+            break
+    return examples
 
 
 def style_plotly(fig, height=380):
@@ -866,32 +886,31 @@ def page_results():
                     """
                 )
 
-    with st.container(border=True):
-        st.subheader("Validasi Psikolog")
-        col_val1, col_val2 = st.columns([1, 1.35])
-        with col_val1:
-            html(
-                """
-                <div class="card-html" style="margin-bottom:0;">
-                    <div class="card-title">Validator Ahli</div>
-                    <h3 style="margin-bottom:.35rem;">Ni Gusti Ketut Diana Setiawati, M.Psi., Psikolog</h3>
-                    <div class="muted">
-                        Psikolog Klinis / Praktik Mandiri Preema Psikologi. Validasi dilakukan untuk menilai apakah tema klaster bermakna secara psikologis dan sesuai dengan konteks gejala.
-                    </div>
+    st.subheader("Validasi Psikolog")
+    col_val1, col_val2 = st.columns([1, 1.35])
+    with col_val1:
+        html(
+            """
+            <div class="card-html" style="margin-bottom:0;">
+                <div class="card-title">Validator Ahli</div>
+                <h3 style="margin-bottom:.35rem;">Ni Gusti Ketut Diana Setiawati, M.Psi., Psikolog</h3>
+                <div class="muted">
+                    Psikolog Klinis / Praktik Mandiri Preema Psikologi. Validasi dilakukan untuk menilai apakah tema klaster bermakna secara psikologis dan sesuai dengan konteks gejala.
                 </div>
-                """
-            )
-        with col_val2:
-            html(
-                """
-                <div class="card-html" style="margin-bottom:0;">
-                    <div class="card-title">Kesimpulan Validasi</div>
-                    <div class="muted">
-                        K=3 dipilih karena memberikan pembagian yang lebih interpretatif dibanding K=2 yang terlalu luas, serta lebih stabil secara makna dibanding K=5 dari elbow method. Validasi psikolog digunakan sebagai penguat bahwa klaster yang terbentuk tidak hanya terbaca secara statistik, tetapi juga dapat dijelaskan dari sudut pandang psikologis.
-                    </div>
+            </div>
+            """
+        )
+    with col_val2:
+        html(
+            """
+            <div class="card-html" style="margin-bottom:0;">
+                <div class="card-title">Kesimpulan Validasi</div>
+                <div class="muted">
+                    K=3 dipilih karena memberikan pembagian yang lebih interpretatif dibanding K=2 yang terlalu luas, serta lebih stabil secara makna dibanding K=5 dari elbow method. Validasi psikolog digunakan sebagai penguat bahwa klaster yang terbentuk tidak hanya terbaca secara statistik, tetapi juga dapat dijelaskan dari sudut pandang psikologis.
                 </div>
-                """
-            )
+            </div>
+            """
+        )
 
     files = sorted(VALIDASI_DIR.glob("*.docx"))
     if files:
@@ -907,10 +926,17 @@ def page_results():
         for idx, cid in enumerate(CLUSTER_INFO):
             info = CLUSTER_INFO[cid]
             with cols[idx]:
-                st.markdown(f"**Cluster {cid} — {info['title']}**")
+                st.markdown(f"**Cluster {cid} - {info['title']}**")
                 for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 5):
-                    html(f'<span class="pill">{w1} {w2} · {freq}</span>')
+                    html(f'<span class="pill">{w1} {w2} - {freq}</span>')
 
+    st.subheader("Contoh Teks dari Dataset per Klaster")
+    st.caption("Contoh berikut diambil dari kolom post_text pada dataset hasil clustering. Masing-masing klaster menampilkan minimal 15 teks.")
+    for cid, info in CLUSTER_INFO.items():
+        with st.expander(f"Cluster {cid} - {info['title']}", expanded=(cid == 0)):
+            examples = raw_examples_by_cluster(df, cid, 15)
+            for idx, example in enumerate(examples, 1):
+                html(f'<div class="table-row" style="grid-template-columns:44px 1fr;"><b>{idx}</b><span>{example}</span></div>')
 
 
 def page_about():
