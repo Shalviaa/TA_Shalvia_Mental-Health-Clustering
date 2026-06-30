@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from collections import Counter
 import re
@@ -14,6 +13,9 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import calinski_harabasz_score, davies_bouldin_score, silhouette_score
 from sklearn.preprocessing import normalize
 
+# =========================
+# PATH CONFIG
+# =========================
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 KAMUS_DIR = DATA_DIR / "kamus"
@@ -23,28 +25,34 @@ CLUSTER_PATH = DATA_DIR / "hasil_clustering_w2v_tuned_pca100.csv"
 TUNING_PATH = DATA_DIR / "bigrams_w2v_tuning_results_pca100.csv"
 VECTOR_PATH = DATA_DIR / "w2v_vectors_pca100.npz"
 
+# =========================
+# CONTENT CONFIG
+# =========================
 CLUSTER_INFO = {
     0: {
         "title": "Anxiety & Physical Symptoms",
         "short": "Kecemasan dan keluhan fisik",
-        "description": "Klaster gejala terkait kecemasan dan keluhan fisik seperti napas sesak, jantung berdebar, lemas, dan pikiran negatif.",
+        "description": "Klaster ini merepresentasikan teks dengan pola kecemasan yang disertai keluhan fisik, seperti napas sesak, jantung berdebar, badan lemas, dan pikiran negatif.",
         "keywords": ["cemas lebih", "sesak nafas", "cemas takut", "badan lemas", "jantung debar"],
+        "recommendation": "Catat kapan keluhan muncul, situasi pemicunya, dan intensitasnya. Jika keluhan sering terjadi atau mengganggu aktivitas, pertimbangkan untuk berkonsultasi dengan psikolog atau psikiater.",
         "color": "#159947",
         "soft": "#e8f8ee",
     },
     1: {
         "title": "Emotional Distress & Social Conflict",
         "short": "Distres emosional dan konflik sosial",
-        "description": "Klaster tekanan emosional, keluh kesah, konflik interpersonal, sudut pandang, dan ekspresi emosi negatif.",
+        "description": "Klaster ini menggambarkan teks dengan tekanan emosional, keluh kesah, konflik interpersonal, sudut pandang, dan ekspresi emosi negatif.",
         "keywords": ["putus asa", "keluh kesah", "caci maki", "sudut pandang", "sesak nafas"],
+        "recommendation": "Coba kenali sumber tekanan, beri jeda sebelum mengambil keputusan, dan ceritakan kondisi kepada orang yang dipercaya. Jika tekanan berlangsung lama, konsultasi profesional dapat dipertimbangkan.",
         "color": "#2563eb",
         "soft": "#eaf1ff",
     },
     2: {
         "title": "Hopelessness & Crisis",
         "short": "Keputusasaan dan krisis",
-        "description": "Klaster keputusasaan, kehilangan arah, keinginan pergi, dan indikasi krisis psikologis yang lebih kuat.",
+        "description": "Klaster ini berisi pola teks yang berkaitan dengan keputusasaan, kehilangan arah, keinginan pergi, dan indikasi krisis psikologis yang lebih kuat.",
         "keywords": ["putus asa", "sehat mental", "hilang arah", "keluh kesah", "ingin pergi"],
+        "recommendation": "Kondisi ini perlu diperhatikan lebih serius. Segera cari dukungan dari orang terdekat atau tenaga profesional, terutama jika muncul pikiran untuk menyakiti diri sendiri.",
         "color": "#7c3aed",
         "soft": "#f2eafe",
     },
@@ -66,111 +74,401 @@ RESEARCH_INFO = {
     "year": "2026",
 }
 
+DISCLAIMER = (
+    "Hasil pemetaan ini bukan diagnosis klinis dan tidak dapat menggantikan pemeriksaan oleh psikolog atau psikiater. "
+    "Aplikasi hanya menunjukkan kemiripan pola teks dengan klaster yang terbentuk dalam penelitian."
+)
+
+# =========================
+# STREAMLIT CONFIG & STYLE
+# =========================
 st.set_page_config(
     page_title="Mental Health Clustering",
-    page_icon="MH",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 CUSTOM_CSS = """
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
 :root {
-    --navy: #06133a;
-    --muted: #60708f;
-    --blue: #2563eb;
-    --line: #dbe3ef;
+    --bg: #f4f7fb;
     --card: #ffffff;
-    --bg: #f8fbff;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #d9e2ef;
+    --primary: #3157d5;
+    --primary-2: #7c3aed;
+    --success: #159947;
+    --warning-bg: #fff7ed;
+    --warning-line: #fed7aa;
+    --warning-text: #9a3412;
 }
-.stApp { background: linear-gradient(120deg, #fbfdff 0%, #f7faff 100%); color: var(--navy); }
-[data-testid="stSidebar"] { background: #fbfcff; border-right: 1px solid var(--line); }
-[data-testid="stSidebar"] > div:first-child { padding-top: 2rem; }
-.block-container { padding-top: 2.1rem; max-width: 1280px; }
-h1, h2, h3 { color: var(--navy); letter-spacing: 0; }
-h1 { font-size: 2.55rem !important; line-height: 1.05; margin-bottom: .25rem; }
-h2 { font-size: 1.45rem !important; }
-textarea { border-radius: 10px !important; }
-.card {
-    background: rgba(255,255,255,.92);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    box-shadow: 0 7px 22px rgba(18, 35, 70, .08);
-    padding: 1.35rem;
+
+html, body, [class*="css"] {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.stApp {
+    background:
+        radial-gradient(circle at top left, rgba(124, 58, 237, .12), transparent 30rem),
+        radial-gradient(circle at top right, rgba(37, 99, 235, .10), transparent 28rem),
+        linear-gradient(180deg, #f8fbff 0%, #f4f7fb 100%);
+    color: var(--ink);
+}
+
+.block-container {
+    max-width: 1180px;
+    padding-top: 2.0rem;
+    padding-bottom: 3rem;
+}
+
+[data-testid="stSidebar"] {
+    background: rgba(255, 255, 255, .92);
+    border-right: 1px solid var(--line);
+    box-shadow: 8px 0 30px rgba(15, 23, 42, .04);
+}
+
+[data-testid="stSidebar"] > div:first-child {
+    padding-top: 2rem;
+}
+
+h1, h2, h3 {
+    color: var(--ink);
+    letter-spacing: -.035em;
+}
+
+h1 {
+    font-size: 2.65rem !important;
+    line-height: 1.05 !important;
+    font-weight: 900 !important;
+    margin-bottom: .5rem !important;
+}
+
+h2 {
+    font-size: 1.55rem !important;
+    font-weight: 850 !important;
+}
+
+h3 {
+    font-size: 1.12rem !important;
+    font-weight: 800 !important;
+}
+
+button[kind="primary"] {
+    border-radius: 999px !important;
+    font-weight: 800 !important;
+    padding: .55rem 1.15rem !important;
+}
+
+textarea, input {
+    border-radius: 16px !important;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 24px !important;
+    border: 1px solid rgba(148, 163, 184, .28) !important;
+    box-shadow: 0 16px 36px rgba(15, 23, 42, .06) !important;
+    background: rgba(255, 255, 255, .84) !important;
+}
+
+.hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 28px;
+    padding: 2rem;
+    background: linear-gradient(135deg, #14213d 0%, #3157d5 58%, #7c3aed 100%);
+    color: white;
+    box-shadow: 0 24px 60px rgba(49, 87, 213, .28);
     margin-bottom: 1rem;
 }
-.metric-card {
-    background: #fff;
-    border: 1px solid #dfe7f3;
-    border-radius: 10px;
-    padding: 1rem 1.15rem;
-    min-height: 108px;
+.hero:after {
+    content: "";
+    position: absolute;
+    width: 22rem;
+    height: 22rem;
+    border-radius: 999px;
+    right: -7rem;
+    top: -9rem;
+    background: rgba(255,255,255,.13);
 }
-.metric-label { color: #435173; font-size: .92rem; margin-bottom: .4rem; }
-.metric-value { font-size: 1.55rem; font-weight: 800; color: #1e63e9; }
-.cluster-row {
-    display: grid;
-    grid-template-columns: 52px minmax(240px, 1fr) minmax(260px, 1.4fr);
-    gap: .8rem;
+.hero h1 {
+    color: white !important;
+    max-width: 820px;
+}
+.hero p {
+    color: rgba(255,255,255,.82);
+    font-size: 1.04rem;
+    max-width: 760px;
+    margin-bottom: 0;
+}
+.tag {
+    display: inline-flex;
     align-items: center;
-    border-top: 1px solid #e2e8f0;
-    padding: .72rem 0;
+    gap: .4rem;
+    border-radius: 999px;
+    padding: .38rem .72rem;
+    background: rgba(255,255,255,.15);
+    color: rgba(255,255,255,.94);
+    font-weight: 800;
+    font-size: .82rem;
+    margin-bottom: .8rem;
 }
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .8rem;
+    margin: .9rem 0 1.1rem;
+}
+.stat-card {
+    border-radius: 22px;
+    padding: 1.05rem 1.1rem;
+    background: rgba(255,255,255,.90);
+    border: 1px solid rgba(148, 163, 184, .24);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, .06);
+}
+.stat-label {
+    font-size: .82rem;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: .2rem;
+}
+.stat-value {
+    font-size: 1.35rem;
+    font-weight: 900;
+    color: var(--ink);
+}
+
+.card-html {
+    border-radius: 24px;
+    padding: 1.35rem;
+    background: rgba(255,255,255,.88);
+    border: 1px solid rgba(148, 163, 184, .26);
+    box-shadow: 0 16px 36px rgba(15, 23, 42, .06);
+    margin-bottom: 1rem;
+}
+.card-title {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    font-size: 1.05rem;
+    font-weight: 900;
+    color: var(--ink);
+    margin-bottom: .45rem;
+}
+.muted {
+    color: var(--muted);
+    font-size: .94rem;
+    line-height: 1.65;
+}
+
+.disclaimer {
+    border-radius: 20px;
+    padding: 1rem 1.1rem;
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-line);
+    color: var(--warning-text);
+    font-weight: 650;
+    line-height: 1.55;
+    margin: .8rem 0 1.1rem;
+}
+
 .badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
-    font-weight: 800;
     width: 34px;
     height: 34px;
     border-radius: 999px;
+    color: white;
+    font-weight: 900;
+}
+.badge-sm {
+    width: 26px;
+    height: 26px;
+    font-size: .76rem;
 }
 .pill {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     border-radius: 999px;
-    padding: .42rem .78rem;
-    margin: .22rem .28rem .22rem 0;
-    background: #eef4ff;
-    color: #145ce6;
-    font-weight: 650;
-    font-size: .92rem;
+    padding: .42rem .72rem;
+    margin: .22rem .24rem .22rem 0;
+    background: #edf4ff;
+    color: #1d4ed8;
+    font-size: .83rem;
+    font-weight: 800;
 }
-.small-muted { color: var(--muted); font-size: .96rem; }
-.result-title { font-size: 1.9rem; font-weight: 850; margin-bottom: .1rem; }
-.success-chip {
-    display:inline-block; background:#16843c; color:#fff; padding:.34rem .8rem; border-radius:999px;
-    font-weight:800; font-size:.88rem; margin-left:.6rem;
-}
-.info-box {
-    border: 1px solid #b8cef8;
-    background: #f7fbff;
-    border-radius: 10px;
+.cluster-card {
+    border-radius: 22px;
     padding: 1.2rem;
+    min-height: 200px;
+    border: 1px solid rgba(148, 163, 184, .35);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, .05);
+    background: rgba(255,255,255,.88);
 }
-.sidebar-title { font-size:1.5rem; font-weight:850; line-height:1.1; margin-bottom:2rem; color:#06133a; }
-.sidebar-logo { font-size:2.6rem; color:#7c3aed; margin-bottom:.5rem; }
-hr { border: none; border-top: 1px solid #e0e7f0; margin: 1rem 0; }
+.result-card {
+    border-radius: 28px;
+    padding: 1.45rem;
+    background: white;
+    border: 1px solid rgba(148, 163, 184, .28);
+    box-shadow: 0 18px 44px rgba(15, 23, 42, .08);
+}
+.result-kicker {
+    color: var(--muted);
+    font-weight: 800;
+    font-size: .86rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+.result-title {
+    font-size: 2.05rem;
+    font-weight: 950;
+    letter-spacing: -.04em;
+    margin: .25rem 0 .35rem;
+}
+.success-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: .36rem .72rem;
+    background: #dcfce7;
+    color: #166534;
+    font-size: .8rem;
+    font-weight: 900;
+    margin-left: .4rem;
+}
+.score-row {
+    display: grid;
+    grid-template-columns: 120px 1fr 56px;
+    gap: .75rem;
+    align-items: center;
+    padding: .45rem 0;
+}
+.score-label {
+    font-weight: 850;
+    color: var(--ink);
+    font-size: .9rem;
+}
+.score-value {
+    text-align: right;
+    color: var(--muted);
+    font-weight: 800;
+}
+.table-row {
+    display: grid;
+    grid-template-columns: 170px 1fr;
+    gap: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    padding: .78rem 0;
+}
+.table-row:last-child { border-bottom: 0; }
+.sidebar-logo {
+    width: 54px;
+    height: 54px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #3157d5, #7c3aed);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.55rem;
+    font-weight: 950;
+    box-shadow: 0 14px 30px rgba(49,87,213,.28);
+    margin-bottom: .9rem;
+}
+.sidebar-title {
+    font-weight: 950;
+    line-height: 1.05;
+    font-size: 1.35rem;
+    color: var(--ink);
+    margin-bottom: .35rem;
+}
+.sidebar-subtitle {
+    color: var(--muted);
+    font-size: .85rem;
+    line-height: 1.45;
+    margin-bottom: 1.2rem;
+}
+.sidebar-box {
+    border-radius: 18px;
+    padding: .9rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: .86rem;
+    line-height: 1.55;
+    margin-top: 1rem;
+}
+
+@media (max-width: 900px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .score-row { grid-template-columns: 1fr; gap: .3rem; }
+    .table-row { grid-template-columns: 1fr; }
+    h1 { font-size: 2.1rem !important; }
+}
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
+# =========================
+# SMALL RENDER HELPERS
+# =========================
+def html(content: str):
+    st.markdown(content, unsafe_allow_html=True)
+
+
+def render_disclaimer():
+    html(f'<div class="disclaimer"> {DISCLAIMER}</div>')
+
+
+def render_hero(title: str, subtitle: str, tag: str = "Tugas Akhir  K-Means Clustering"):
+    html(
+        f"""
+        <div class="hero">
+            <div class="tag"> {tag}</div>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
+        </div>
+        """
+    )
+
 
 def render_sidebar():
-    st.sidebar.markdown('<div class="sidebar-logo">MH</div><div class="sidebar-title">Mental Health<br/>Clustering</div>', unsafe_allow_html=True)
+    st.sidebar.markdown(
+        """
+        <div class="sidebar-logo">MH</div>
+        <div class="sidebar-title">Mental Health<br/>Clustering</div>
+        <div class="sidebar-subtitle">Demo interaktif hasil penelitian clustering teks kesehatan mental.</div>
+        """,
+        unsafe_allow_html=True,
+    )
     page = st.sidebar.radio(
-        "Navigasi",
-        ["Input Teks", "Hasil Klastering", "Validasi Psikolog", "Tentang Penelitian"],
+        "Menu",
+        ["Input Teks", "Hasil Penelitian", "Validasi", "Tentang"],
         label_visibility="collapsed",
     )
-    st.sidebar.markdown("<hr/>", unsafe_allow_html=True)
+    st.sidebar.markdown("---")
     st.sidebar.markdown(
-        f'<div class="small-muted"><b>Tugas Akhir</b><br/>{RESEARCH_INFO["author"]}<br/>{RESEARCH_INFO["student_id"]}<br/><br/>Pemetaan teks ke klaster gejala kesehatan mental berdasarkan hasil penelitian.</div>',
+        f"""
+        <div class="sidebar-box">
+            <b>{RESEARCH_INFO['author']}</b><br/>
+            {RESEARCH_INFO['student_id']}<br/>
+            {RESEARCH_INFO['program']}<br/>
+            {RESEARCH_INFO['university']}
+        </div>
+        """,
         unsafe_allow_html=True,
     )
     return page
 
 
+# =========================
+# DATA LOADING
+# =========================
 @st.cache_data(show_spinner=False)
 def load_cluster_data():
     df = pd.read_csv(CLUSTER_PATH)
@@ -203,6 +501,7 @@ def load_kamus():
             temp = pd.read_csv(path, header=None, encoding="utf-8").dropna()
             for _, row in temp.iterrows():
                 master[str(row[0]).lower().strip()] = str(row[1]).lower().strip()
+
     stopwords_path = KAMUS_DIR / "custom_stopword.csv"
     stopwords = set()
     if stopwords_path.exists():
@@ -212,6 +511,9 @@ def load_kamus():
     return master, stopwords
 
 
+# =========================
+# PREPROCESSING & PREDICTION
+# =========================
 def normalize_repeated_letters(word):
     return re.sub(r"(.)\1{2,}", r"\1\1", word)
 
@@ -244,8 +546,7 @@ def document_vector(tokens, vocab, vectors):
 def compute_doc_vectors(_vectors_key="default"):
     df = load_cluster_data()
     vocab, word_vectors = load_word_vectors()
-    doc_vectors = np.vstack([document_vector(tokens, vocab, word_vectors) for tokens in df["tokens_lemma"]])
-    return doc_vectors
+    return np.vstack([document_vector(tokens, vocab, word_vectors) for tokens in df["tokens_lemma"]])
 
 
 @st.cache_data(show_spinner=False)
@@ -279,12 +580,14 @@ def predict_cluster(text):
     normalized, tokens = preprocess_text(text)
     vec = document_vector(tokens, vocab, word_vectors)
     centroids = compute_centroids()
+
     raw_scores = {}
     for cluster_id, centroid in centroids.items():
         sim = cosine_similarity(vec, centroid)
         if sim == 0:
             sim = keyword_fallback_score(tokens, cluster_id)
         raw_scores[cluster_id] = sim
+
     best_cluster = max(raw_scores, key=raw_scores.get)
     sims = np.array([raw_scores[i] for i in sorted(raw_scores)])
     sims = sims - sims.min()
@@ -300,6 +603,7 @@ def predict_cluster(text):
 def compute_visual_data():
     df = load_cluster_data()
     vectors = compute_doc_vectors()
+
     pca2 = PCA(n_components=2, random_state=42)
     points = pca2.fit_transform(vectors)
     plot_df = pd.DataFrame({
@@ -312,6 +616,7 @@ def compute_visual_data():
     pca100 = PCA(n_components=min(100, vectors.shape[1]), random_state=42)
     X_pca = pca100.fit_transform(vectors)
     X_norm = normalize(X_pca)
+
     rows = []
     for k in range(2, 11):
         km = KMeans(n_clusters=k, random_state=42, n_init=10)
@@ -331,189 +636,364 @@ def top_bigrams_by_cluster(df, cluster_id, n=5):
     return Counter(zip(words, words[1:])).most_common(n)
 
 
+def style_plotly(fig, height=380):
+    fig.update_layout(
+        height=height,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Inter, Arial", color="#0f172a"),
+        margin=dict(l=18, r=18, t=20, b=20),
+        legend_title_text="",
+    )
+    fig.update_xaxes(gridcolor="rgba(148,163,184,.22)", zeroline=False)
+    fig.update_yaxes(gridcolor="rgba(148,163,184,.22)", zeroline=False)
+    return fig
+
+
+# =========================
+# PAGES
+# =========================
 def page_input():
-    st.markdown("# Pemetaan Teks ke Klaster Gejala Kesehatan Mental")
-    st.markdown('<div class="small-muted">Masukkan teks/curhatan, lalu sistem akan menunjukkan klaster yang paling sesuai dengan hasil penelitian.</div>', unsafe_allow_html=True)
+    df = load_cluster_data()
+    render_hero(
+        "Pemetaan Teks ke Klaster Gejala Kesehatan Mental",
+        "Masukkan teks curahan hati. Sistem akan memetakan teks ke klaster yang paling mirip berdasarkan model Word2Vec, PCA, dan K-Means pada hasil penelitian.",
+    )
+    render_disclaimer()
 
-    default_text = "Akhir-akhir ini saya sering merasa cemas tanpa alasan yang jelas. Jantung saya berdebar-debar, napas terasa sesak, dan badan jadi lemas. Saya sulit tidur dan sering kepikiran hal-hal buruk terus-menerus."
-    with st.container():
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        text = st.text_area("Masukan Teks", value=default_text, height=150)
-        run = st.button("Lihat Klaster", type="primary", use_container_width=False)
-        st.markdown('</div>', unsafe_allow_html=True)
+    total_data = len(df)
+    html(
+        f"""
+        <div class="stat-grid">
+            <div class="stat-card"><div class="stat-label">Data Final</div><div class="stat-value">{total_data:,} teks</div></div>
+            <div class="stat-card"><div class="stat-label">Jumlah Klaster</div><div class="stat-value">3 klaster</div></div>
+            <div class="stat-card"><div class="stat-label">Metode</div><div class="stat-value">Word2Vec  PCA  K-Means</div></div>
+        </div>
+        """
+    )
 
-    if run or text.strip():
+    with st.container(border=True):
+        st.subheader("Coba Masukkan Teks")
+        text = st.text_area(
+            "Teks pengguna",
+            value="",
+            placeholder="Contoh: Saya sering merasa cemas, sulit tidur, napas terasa sesak, dan badan terasa lemas.",
+            height=150,
+            label_visibility="collapsed",
+        )
+        col_btn, col_hint = st.columns([1, 3])
+        with col_btn:
+            run = st.button("Lihat Klaster", type="primary", use_container_width=True)
+        with col_hint:
+            st.caption("Teks akan diproses melalui cleaning, normalisasi, stopword removal, dan representasi vektor.")
+
+    if not run:
+        html(
+            """
+            <div class="card-html">
+                <div class="card-title"> Cara membaca hasil</div>
+                <div class="muted">
+                    Setelah tombol ditekan, aplikasi menampilkan klaster paling sesuai, kata kunci yang terkait, skor kesesuaian, teks setelah normalisasi, dan rekomendasi umum non-diagnostik.
+                </div>
+            </div>
+            """
+        )
+        render_cluster_overview()
+        return
+
+    if not text.strip():
+        st.warning("Masukkan teks terlebih dahulu sebelum melihat klaster.")
+        render_cluster_overview()
+        return
+
+    with st.spinner("Memproses teks dan menghitung kemiripan klaster..."):
         cluster_id, normalized, tokens, raw_scores, scores = predict_cluster(text)
-        info = CLUSTER_INFO[cluster_id]
-        cols = st.columns([1, 5])
-        with cols[0]:
-            st.markdown(
-                f'<div class="card" style="text-align:center;background:{info["soft"]};"><div style="font-size:3rem;color:{info["color"]};font-weight:900;">{cluster_id}</div><b>Cluster</b></div>',
-                unsafe_allow_html=True,
-            )
-        with cols[1]:
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.markdown(f'<div class="small-muted">Teks ini dipetakan ke</div><div class="result-title" style="color:{info["color"]};">Cluster {cluster_id} <span class="success-chip">Paling Sesuai</span></div>', unsafe_allow_html=True)
-            st.markdown(f"### {info['title']}")
-            st.markdown(f'<div class="small-muted">{info["description"]}</div><hr/>', unsafe_allow_html=True)
-            st.markdown("**Kata Kunci Terkait**")
-            st.markdown(" ".join([f'<span class="pill">{kw}</span>' for kw in info["keywords"]]), unsafe_allow_html=True)
+
+    info = CLUSTER_INFO[cluster_id]
+    html(
+        f"""
+        <div class="result-card">
+            <div class="result-kicker">Hasil Pemetaan</div>
+            <div class="result-title" style="color:{info['color']};">
+                Cluster {cluster_id} <span class="success-chip">Paling Sesuai</span>
+            </div>
+            <h3>{info['title']}</h3>
+            <div class="muted">{info['description']}</div>
+            <div style="margin-top:1rem;">
+                {''.join([f'<span class="pill">{kw}</span>' for kw in info['keywords']])}
+            </div>
+        </div>
+        """
+    )
+
+    col_left, col_right = st.columns([1.05, 1])
+    with col_left:
+        with st.container(border=True):
+            st.subheader("Skor Kesesuaian")
+            for cid in sorted(scores):
+                pct = max(0, min(1, scores[cid]))
+                st.markdown(f"**Cluster {cid}**  {pct:.0%}")
+                st.progress(pct)
+
             with st.expander("Lihat teks setelah normalisasi"):
                 st.write(normalized if normalized else "Tidak ada token yang cocok setelah preprocessing.")
-            st.markdown('</div>', unsafe_allow_html=True)
 
-        score_df = pd.DataFrame({
-            "Klaster": [f"Cluster {i}" for i in sorted(scores)],
-            "Skor Kesesuaian": [scores[i] for i in sorted(scores)],
-        })
-        fig = px.bar(score_df, x="Klaster", y="Skor Kesesuaian", color="Klaster", text_auto=".2f")
-        fig.update_layout(showlegend=False, height=320, margin=dict(l=20, r=20, t=25, b=20), yaxis_tickformat=".0%")
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown('<div class="card"><h3>Daftar Klaster</h3>', unsafe_allow_html=True)
-    for cid, info in CLUSTER_INFO.items():
-        st.markdown(
-            f'<div class="cluster-row"><span class="badge" style="background:{info["color"]};">{cid}</span><b>Cluster {cid} - {info["title"]}</b><span class="small-muted">{info["description"]}</span></div>',
-            unsafe_allow_html=True,
+    with col_right:
+        html(
+            f"""
+            <div class="card-html" style="border-left:5px solid {info['color']};">
+                <div class="card-title"> Rekomendasi Umum</div>
+                <div class="muted">{info['recommendation']}</div>
+                <div style="height:.85rem;"></div>
+                <div class="muted"><b>Catatan:</b> rekomendasi ini bersifat umum, bukan saran medis dan bukan diagnosis.</div>
+            </div>
+            """
         )
-    st.markdown('</div>', unsafe_allow_html=True)
+
+    render_cluster_overview()
+
+
+def render_cluster_overview():
+    html('<div class="card-html"><div class="card-title"> Ringkasan Tiga Klaster</div><div class="muted">Setiap klaster merupakan hasil interpretasi dari pola teks yang terbentuk pada penelitian.</div></div>')
+    cols = st.columns(3)
+    for idx, (cid, info) in enumerate(CLUSTER_INFO.items()):
+        with cols[idx]:
+            html(
+                f"""
+                <div class="cluster-card" style="border-top:5px solid {info['color']}; background:{info['soft']};">
+                    <span class="badge" style="background:{info['color']};">{cid}</span>
+                    <h3 style="color:{info['color']}; margin-top:.85rem;">Cluster {cid}</h3>
+                    <b>{info['title']}</b>
+                    <div class="muted" style="margin-top:.45rem;">{info['short']}</div>
+                    <div style="margin-top:.7rem;">
+                        {''.join([f'<span class="pill">{kw}</span>' for kw in info['keywords'][:3]])}
+                    </div>
+                </div>
+                """
+            )
 
 
 def page_results():
-    st.markdown("# Hasil Klastering Penelitian")
-    st.markdown('<div class="small-muted">Visualisasi utama untuk memahami struktur klaster hasil penelitian.</div>', unsafe_allow_html=True)
+    render_hero(
+        "Dashboard Hasil Klastering",
+        "Halaman ini merangkum visualisasi elbow, sebaran PCA, metrik evaluasi, ukuran klaster, dan bigram dominan dari hasil penelitian.",
+        "Dashboard Penelitian",
+    )
+
     df = load_cluster_data()
     plot_df, metrics_df = compute_visual_data()
+    counts = df["cluster"].value_counts().sort_index()
+
+    html(
+        f"""
+        <div class="stat-grid">
+            <div class="stat-card"><div class="stat-label">Silhouette K=3</div><div class="stat-value">{VALIDATION_METRICS['silhouette']:.4f}</div></div>
+            <div class="stat-card"><div class="stat-label">Calinski-Harabasz</div><div class="stat-value">{VALIDATION_METRICS['calinski']:,.2f}</div></div>
+            <div class="stat-card"><div class="stat-label">Davies-Bouldin</div><div class="stat-value">{VALIDATION_METRICS['davies']:.4f}</div></div>
+        </div>
+        """
+    )
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<div class="card"><h3>Knee Locator / Elbow</h3>', unsafe_allow_html=True)
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=metrics_df["K"], y=metrics_df["Inertia"], mode="lines+markers", line=dict(color="#2563eb", width=3)))
-        fig.add_vline(x=5, line_dash="dash", line_color="#2563eb")
-        fig.add_annotation(x=5, y=float(metrics_df.loc[metrics_df["K"] == 5, "Inertia"].iloc[0]), text="Elbow di K=5", showarrow=True, arrowhead=2)
-        fig.update_layout(height=360, margin=dict(l=10, r=10, t=15, b=10), xaxis_title="K", yaxis_title="Inertia / Distortion")
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('<div class="small-muted">Elbow method menunjukkan titik siku pada K=5 sebagai kandidat awal jumlah klaster.</div></div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.subheader("Elbow / Knee Locator")
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=metrics_df["K"],
+                y=metrics_df["Inertia"],
+                mode="lines+markers",
+                line=dict(color="#3157d5", width=4),
+                marker=dict(size=8),
+            ))
+            fig.add_vline(x=5, line_dash="dash", line_color="#7c3aed")
+            fig.add_annotation(
+                x=5,
+                y=float(metrics_df.loc[metrics_df["K"] == 5, "Inertia"].iloc[0]),
+                text="Elbow K=5",
+                showarrow=True,
+                arrowhead=2,
+                bgcolor="white",
+                bordercolor="#d9e2ef",
+            )
+            fig.update_layout(xaxis_title="Jumlah Klaster (K)", yaxis_title="Inertia")
+            st.plotly_chart(style_plotly(fig, 360), use_container_width=True)
+            st.caption("Elbow method menunjukkan K=5 sebagai kandidat awal, tetapi interpretasi akhir tetap mempertimbangkan validasi psikolog dan metrik lain.")
 
     with col2:
-        st.markdown('<div class="card"><h3>PCA Scatter Plot</h3>', unsafe_allow_html=True)
-        fig = px.scatter(plot_df, x="PC1", y="PC2", color="label", color_discrete_map={"Cluster 0": "#2563eb", "Cluster 1": "#16a34a", "Cluster 2": "#ef4444"}, opacity=0.72)
-        fig.update_layout(height=360, margin=dict(l=10, r=10, t=15, b=10), legend_title_text="")
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('<div class="small-muted">Visualisasi PCA 2D memperlihatkan pemisahan data berdasarkan tiga klaster.</div></div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.subheader("PCA Scatter Plot")
+            fig = px.scatter(
+                plot_df,
+                x="PC1",
+                y="PC2",
+                color="label",
+                color_discrete_map={"Cluster 0": "#159947", "Cluster 1": "#2563eb", "Cluster 2": "#7c3aed"},
+                opacity=0.72,
+            )
+            st.plotly_chart(style_plotly(fig, 360), use_container_width=True)
+            st.caption("Visualisasi PCA 2D digunakan untuk melihat pola sebaran data berdasarkan tiga klaster.")
 
-    col3, col4 = st.columns(2)
+    col3, col4 = st.columns([1, 1])
     with col3:
-        st.markdown('<div class="card"><h3>Metrik Evaluasi</h3>', unsafe_allow_html=True)
-        m1, m2, m3 = st.columns(3)
-        m1.markdown(f'<div class="metric-card"><div class="metric-label">Silhouette Score</div><div class="metric-value">{VALIDATION_METRICS["silhouette"]:.4f}</div></div>', unsafe_allow_html=True)
-        m2.markdown(f'<div class="metric-card"><div class="metric-label">Calinski-Harabasz</div><div class="metric-value" style="color:#159947;">{VALIDATION_METRICS["calinski"]:,.2f}</div></div>', unsafe_allow_html=True)
-        m3.markdown(f'<div class="metric-card"><div class="metric-label">Davies-Bouldin</div><div class="metric-value" style="color:#dc2626;">{VALIDATION_METRICS["davies"]:.4f}</div></div>', unsafe_allow_html=True)
-        st.markdown('<div class="small-muted" style="margin-top:1rem;">K=3 dipilih karena paling representatif secara interpretasi dan validasi psikolog.</div></div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.subheader("Ukuran Klaster")
+            for cid, info in CLUSTER_INFO.items():
+                html(
+                    f"""
+                    <div style="display:grid;grid-template-columns:44px 1fr 86px;gap:.7rem;align-items:center;background:{info['soft']};border-radius:16px;padding:.75rem .9rem;margin:.45rem 0;">
+                        <span class="badge badge-sm" style="background:{info['color']};">{cid}</span>
+                        <div><b>Cluster {cid}</b><br/><span class="muted">{info['short']}</span></div>
+                        <b style="color:{info['color']};text-align:right;">n = {counts.get(cid, 0):,}</b>
+                    </div>
+                    """
+                )
 
     with col4:
-        st.markdown('<div class="card"><h3>Ringkasan Hasil Klaster</h3>', unsafe_allow_html=True)
-        counts = df["cluster"].value_counts().sort_index()
-        for cid, info in CLUSTER_INFO.items():
-            st.markdown(
-                f'<div class="cluster-row" style="grid-template-columns:52px 1.5fr 1fr;background:{info["soft"]};border-radius:8px;border-top:0;padding:.65rem .8rem;margin-bottom:.55rem;"><span class="badge" style="background:{info["color"]};">{cid}</span><b>Cluster {cid}: {info["title"]}</b><span class="small-muted">n = {counts.get(cid, 0):,}</span></div>',
-                unsafe_allow_html=True,
-            )
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.subheader("Alasan K=3")
+            reasons = [
+                "K=2 memiliki metrik kuat, tetapi tema terlalu luas.",
+                "K=3 lebih mudah diinterpretasikan secara psikologis.",
+                "Pola PCA masih menunjukkan pemisahan yang cukup jelas.",
+                "Validasi psikolog mendukung tiga tema utama.",
+            ]
+            for i, reason in enumerate(reasons, 1):
+                html(
+                    f"""
+                    <div style="display:grid;grid-template-columns:34px 1fr;gap:.75rem;align-items:start;padding:.55rem 0;border-bottom:1px solid #e2e8f0;">
+                        <span class="badge badge-sm" style="background:#3157d5;">{i}</span>
+                        <span>{reason}</span>
+                    </div>
+                    """
+                )
 
-    st.markdown('<div class="card"><h3>Top Bigram per Klaster</h3>', unsafe_allow_html=True)
-    cols = st.columns(3)
-    for idx, cid in enumerate(CLUSTER_INFO):
-        with cols[idx]:
+    with st.container(border=True):
+        st.subheader("Top Bigram per Klaster")
+        cols = st.columns(3)
+        for idx, cid in enumerate(CLUSTER_INFO):
             info = CLUSTER_INFO[cid]
-            st.markdown(f'**Cluster {cid} - {info["title"]}**')
-            for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 5):
-                st.markdown(f'<span class="pill">{w1} {w2} ({freq})</span>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+            with cols[idx]:
+                st.markdown(f"**Cluster {cid}  {info['title']}**")
+                for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 5):
+                    html(f'<span class="pill">{w1} {w2}  {freq}</span>')
 
 
 def page_validation():
-    st.markdown("# Validasi Psikolog dan Alasan Pemilihan Klaster")
-    st.markdown('<div class="small-muted">Hasil klastering ditinjau untuk memastikan bahwa setiap klaster bermakna secara psikologis dan sesuai dengan konteks gejala.</div>', unsafe_allow_html=True)
+    render_hero(
+        "Validasi Psikolog",
+        "Hasil klastering ditinjau untuk memastikan tema klaster tidak hanya terbaca secara statistik, tetapi juga bermakna dalam konteks psikologis.",
+        "Expert Validation",
+    )
+    render_disclaimer()
 
-    st.markdown('<div class="card"><h3>Validator Ahli</h3>', unsafe_allow_html=True)
-    st.markdown("## Ni Gusti Ketut Diana Setiawati, M.Psi., Psikolog")
-    st.markdown('<div class="small-muted">Psikolog Klinis / Praktik Mandiri Preema Psikologi. Validasi dilakukan pada 2 Juni 2026 untuk menilai kesesuaian hasil pengelompokan dengan gejala klinis dan kategori DSM-5.</div></div>', unsafe_allow_html=True)
+    html(
+        """
+        <div class="card-html">
+            <div class="card-title"> Validator Ahli</div>
+            <h3>Ni Gusti Ketut Diana Setiawati, M.Psi., Psikolog</h3>
+            <div class="muted">
+                Psikolog Klinis / Praktik Mandiri Preema Psikologi. Validasi dilakukan pada 2 Juni 2026 untuk menilai kesesuaian hasil pengelompokan dengan gejala klinis dan kategori DSM-5.
+            </div>
+        </div>
+        """
+    )
 
-    st.markdown('<div class="card"><h3>Temuan Validasi</h3>', unsafe_allow_html=True)
     cols = st.columns(3)
     for idx, cid in enumerate(CLUSTER_INFO):
         info = CLUSTER_INFO[cid]
         with cols[idx]:
-            st.markdown(f'<div class="info-box" style="border-left:4px solid {info["color"]};"><span class="badge" style="background:{info["color"]};">{cid}</span><h3 style="color:{info["color"]};">Cluster {cid} - {info["title"]}</h3>' + " ".join([f'<span class="pill">{kw}</span>' for kw in info["keywords"][:4]]) + '</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+            html(
+                f"""
+                <div class="cluster-card" style="border-top:5px solid {info['color']};">
+                    <span class="badge" style="background:{info['color']};">{cid}</span>
+                    <h3 style="color:{info['color']}; margin-top:.85rem;">Cluster {cid}</h3>
+                    <b>{info['title']}</b>
+                    <div style="margin-top:.7rem;">
+                        {''.join([f'<span class="pill">{kw}</span>' for kw in info['keywords'][:4]])}
+                    </div>
+                </div>
+                """
+            )
 
-    col1, col2 = st.columns([1.25, 1])
-    with col1:
-        st.markdown('<div class="card"><h3>Alasan Memilih K = 3</h3>', unsafe_allow_html=True)
-        reasons = [
-            "K=2 memiliki metrik baik, tetapi klasternya terlalu luas.",
-            "K=3 lebih mudah diinterpretasikan secara psikologis.",
-            "K=3 didukung visualisasi PCA dan pemisahan gejala yang jelas.",
-            "K=3 selaras dengan validasi psikolog.",
-            "K=5 dari elbow method kurang stabil secara interpretatif.",
-        ]
-        for i, reason in enumerate(reasons, 1):
-            st.markdown(f'<div class="cluster-row" style="grid-template-columns:42px 1fr;"><span class="badge" style="background:#2563eb;width:28px;height:28px;">{i}</span><span>{reason}</span></div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col2:
-        st.markdown('<div class="info-box" style="margin-top:1.4rem;"><h3>Berdasarkan evaluasi kuantitatif, visualisasi PCA, dan validasi psikolog, K=3 dipilih sebagai jumlah klaster paling representatif untuk penelitian ini.</h3></div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        st.subheader("Kesimpulan Validasi")
+        html(
+            """
+            <div class="muted">
+                Berdasarkan evaluasi kuantitatif, visualisasi PCA, dan validasi psikolog, K=3 dipilih sebagai jumlah klaster yang paling representatif. K=2 memberikan metrik internal yang lebih kuat, tetapi terlalu luas untuk menjelaskan variasi gejala. Sementara itu, K=5 dari elbow method menghasilkan pembagian yang kurang stabil secara interpretatif.
+            </div>
+            """
+        )
 
-    st.markdown('<div class="card"><h3>Dokumen Validasi</h3>', unsafe_allow_html=True)
-    for file in sorted(VALIDASI_DIR.glob("*.docx")):
-        with open(file, "rb") as fh:
-            st.download_button(f"Unduh {file.name}", fh, file_name=file.name)
-    st.markdown('</div>', unsafe_allow_html=True)
+    files = sorted(VALIDASI_DIR.glob("*.docx"))
+    if files:
+        with st.container(border=True):
+            st.subheader("Dokumen Validasi")
+            for file in files:
+                with open(file, "rb") as fh:
+                    st.download_button(f"Unduh {file.name}", fh, file_name=file.name)
 
 
 def page_about():
-    st.markdown("# Tentang Penelitian")
-    st.markdown('<div class="small-muted">Informasi singkat mengenai Tugas Akhir dan aplikasi pemetaan klaster gejala kesehatan mental.</div>', unsafe_allow_html=True)
+    render_hero(
+        "Tentang Penelitian",
+        "Informasi singkat mengenai Tugas Akhir, metode yang digunakan, dan tujuan aplikasi sebagai media demonstrasi hasil clustering.",
+        "Profil Penelitian",
+    )
 
-    st.markdown('<div class="card"><h3>Identitas Tugas Akhir</h3>', unsafe_allow_html=True)
-    st.markdown(f"### {RESEARCH_INFO['title']}")
-    rows = [
-        ("Penulis", RESEARCH_INFO["author"]),
-        ("NIM", RESEARCH_INFO["student_id"]),
-        ("Program Studi", RESEARCH_INFO["program"]),
-        ("Fakultas", RESEARCH_INFO["faculty"]),
-        ("Universitas", RESEARCH_INFO["university"]),
-        ("Tahun", RESEARCH_INFO["year"]),
-    ]
-    for label, value in rows:
-        st.markdown(f'<div class="cluster-row" style="grid-template-columns:180px 1fr;"><b>{label}</b><span>{value}</span></div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    html(
+        f"""
+        <div class="card-html">
+            <div class="card-title"> Identitas Tugas Akhir</div>
+            <h3>{RESEARCH_INFO['title']}</h3>
+            <div class="table-row"><b>Penulis</b><span>{RESEARCH_INFO['author']}</span></div>
+            <div class="table-row"><b>NIM</b><span>{RESEARCH_INFO['student_id']}</span></div>
+            <div class="table-row"><b>Program Studi</b><span>{RESEARCH_INFO['program']}</span></div>
+            <div class="table-row"><b>Fakultas</b><span>{RESEARCH_INFO['faculty']}</span></div>
+            <div class="table-row"><b>Universitas</b><span>{RESEARCH_INFO['university']}</span></div>
+            <div class="table-row"><b>Tahun</b><span>{RESEARCH_INFO['year']}</span></div>
+        </div>
+        """
+    )
 
-    col1, col2 = st.columns([1.1, 1])
+    col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<div class="card"><h3>Ringkasan Penelitian</h3>', unsafe_allow_html=True)
-        st.markdown('<div class="small-muted">Penelitian ini mengelompokkan teks curahan hati pengguna media sosial ke dalam klaster gejala gangguan kesehatan mental. Data teks diproses melalui normalisasi, tokenisasi, stopword removal, dan lemmatization, kemudian direpresentasikan menggunakan Word2Vec. Hasil representasi teks dikelompokkan dengan algoritma K-Means untuk menemukan pola gejala yang muncul pada data.</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        html(
+            """
+            <div class="card-html">
+                <div class="card-title"> Ringkasan Penelitian</div>
+                <div class="muted">
+                    Penelitian ini mengelompokkan teks curahan hati pengguna media sosial ke dalam klaster gejala kesehatan mental. Data teks diproses melalui cleaning, normalisasi, tokenisasi, stopword removal, dan lemmatization. Representasi teks dibuat menggunakan Word2Vec, lalu direduksi dengan PCA dan dikelompokkan menggunakan K-Means.
+                </div>
+            </div>
+            """
+        )
     with col2:
-        st.markdown('<div class="card"><h3>Tujuan Aplikasi</h3>', unsafe_allow_html=True)
-        st.markdown('<div class="small-muted">Aplikasi ini menampilkan hasil penelitian secara interaktif: pengguna dapat memasukkan teks, melihat klaster yang paling sesuai, mengeksplorasi visualisasi hasil klastering, serta melihat ringkasan validasi psikolog.</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        html(
+            """
+            <div class="card-html">
+                <div class="card-title"> Tujuan Aplikasi</div>
+                <div class="muted">
+                    Aplikasi ini digunakan sebagai media demonstrasi hasil penelitian. Pengguna dapat memasukkan teks, melihat klaster yang paling sesuai, mengeksplorasi visualisasi hasil klastering, dan membaca ringkasan validasi psikolog.
+                </div>
+            </div>
+            """
+        )
 
-    st.markdown('<div class="card"><h3>Hasil Utama</h3>', unsafe_allow_html=True)
-    cols = st.columns(3)
-    for idx, (cid, info) in enumerate(CLUSTER_INFO.items()):
-        with cols[idx]:
-            st.markdown(f'<div class="info-box" style="border-left:4px solid {info["color"]};"><span class="badge" style="background:{info["color"]};">{cid}</span><h3 style="color:{info["color"]};">Cluster {cid}</h3><b>{info["title"]}</b><br/><span class="small-muted">{info["short"]}</span></div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    render_cluster_overview()
 
 
+# =========================
+# APP ROUTER
+# =========================
 page = render_sidebar()
+
 if page == "Input Teks":
     page_input()
-elif page == "Hasil Klastering":
+elif page == "Hasil Penelitian":
     page_results()
-elif page == "Validasi Psikolog":
+elif page == "Validasi":
     page_validation()
 else:
     page_about()
