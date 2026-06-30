@@ -642,15 +642,21 @@ def top_bigrams_by_cluster(df, cluster_id, n=5):
     return Counter(zip(words, words[1:])).most_common(n)
 
 
-def raw_examples_by_cluster(df, cluster_id, n=15):
+def raw_examples_by_cluster(df, cluster_id, n=5, skip_positions=None):
     source = df.loc[df["cluster"] == cluster_id, "post_text"].dropna().astype(str)
+    skip_positions = set(skip_positions or [])
     examples = []
     seen = set()
+    candidate_no = 0
     for value in source:
         clean = " ".join(value.split())
-        if len(clean) < 20 or clean in seen:
+        dedupe_key = clean.lower()
+        if len(clean) < 20 or dedupe_key in seen:
             continue
-        seen.add(clean)
+        seen.add(dedupe_key)
+        candidate_no += 1
+        if candidate_no in skip_positions:
+            continue
         examples.append(html_lib.escape(clean))
         if len(examples) >= n:
             break
@@ -931,10 +937,15 @@ def page_results():
                     html(f'<span class="pill">{w1} {w2} - {freq}</span>')
 
     st.subheader("Contoh Teks dari Dataset per Klaster")
-    st.caption("Contoh berikut diambil dari kolom post_text pada dataset hasil clustering. Masing-masing klaster menampilkan minimal 15 teks.")
+    st.caption("Contoh berikut diambil dari kolom post_text pada dataset hasil clustering. Setiap klaster menampilkan 5 teks terpilih tanpa duplikat.")
+    skip_map = {
+        0: {1, 4, 5},
+        1: {3},
+        2: set(),
+    }
     for cid, info in CLUSTER_INFO.items():
         with st.expander(f"Cluster {cid} - {info['title']}", expanded=(cid == 0)):
-            examples = raw_examples_by_cluster(df, cid, 15)
+            examples = raw_examples_by_cluster(df, cid, 5, skip_map.get(cid))
             for idx, example in enumerate(examples, 1):
                 html(f'<div class="table-row" style="grid-template-columns:44px 1fr;"><b>{idx}</b><span>{example}</span></div>')
 
