@@ -27,6 +27,7 @@ VECTOR_PATH = DATA_DIR / "w2v_vectors_pca100.npz"
 
 # =========================
 # CONTENT CONFIG
+# Minimal version: cluster detail hanya ditampilkan di Input setelah klik tombol dan di Hasil Penelitian.
 # =========================
 CLUSTER_INFO = {
     0: {
@@ -84,7 +85,7 @@ DISCLAIMER = (
 # =========================
 st.set_page_config(
     page_title="Mental Health Clustering",
-    page_icon="",
+    page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -422,14 +423,14 @@ def html(content: str):
 
 
 def render_disclaimer():
-    html(f'<div class="disclaimer"> {DISCLAIMER}</div>')
+    html(f'<div class="disclaimer">⚠️ {DISCLAIMER}</div>')
 
 
-def render_hero(title: str, subtitle: str, tag: str = "Tugas Akhir  K-Means Clustering"):
+def render_hero(title: str, subtitle: str, tag: str = "Tugas Akhir · K-Means Clustering"):
     html(
         f"""
         <div class="hero">
-            <div class="tag"> {tag}</div>
+            <div class="tag">🧠 {tag}</div>
             <h1>{title}</h1>
             <p>{subtitle}</p>
         </div>
@@ -448,7 +449,7 @@ def render_sidebar():
     )
     page = st.sidebar.radio(
         "Menu",
-        ["Input Teks", "Hasil Penelitian", "Validasi", "Tentang"],
+        ["Input Teks", "Hasil Penelitian", "Tentang"],
         label_visibility="collapsed",
     )
     st.sidebar.markdown("---")
@@ -667,7 +668,7 @@ def page_input():
         <div class="stat-grid">
             <div class="stat-card"><div class="stat-label">Data Final</div><div class="stat-value">{total_data:,} teks</div></div>
             <div class="stat-card"><div class="stat-label">Jumlah Klaster</div><div class="stat-value">3 klaster</div></div>
-            <div class="stat-card"><div class="stat-label">Metode</div><div class="stat-value">Word2Vec  PCA  K-Means</div></div>
+            <div class="stat-card"><div class="stat-label">Metode</div><div class="stat-value">Word2Vec · PCA · K-Means</div></div>
         </div>
         """
     )
@@ -691,19 +692,17 @@ def page_input():
         html(
             """
             <div class="card-html">
-                <div class="card-title"> Cara membaca hasil</div>
+                <div class="card-title">💡 Cara membaca hasil</div>
                 <div class="muted">
-                    Setelah tombol ditekan, aplikasi menampilkan klaster paling sesuai, kata kunci yang terkait, skor kesesuaian, teks setelah normalisasi, dan rekomendasi umum non-diagnostik.
+                    Tulis teks, klik tombol <b>Lihat Klaster</b>, lalu aplikasi akan menampilkan satu klaster yang paling sesuai. Hasil ini hanya untuk demonstrasi penelitian, bukan diagnosis klinis.
                 </div>
             </div>
             """
         )
-        render_cluster_overview()
         return
 
     if not text.strip():
         st.warning("Masukkan teks terlebih dahulu sebelum melihat klaster.")
-        render_cluster_overview()
         return
 
     with st.spinner("Memproses teks dan menghitung kemiripan klaster..."):
@@ -732,7 +731,7 @@ def page_input():
             st.subheader("Skor Kesesuaian")
             for cid in sorted(scores):
                 pct = max(0, min(1, scores[cid]))
-                st.markdown(f"**Cluster {cid}**  {pct:.0%}")
+                st.markdown(f"**Cluster {cid}** · {pct:.0%}")
                 st.progress(pct)
 
             with st.expander("Lihat teks setelah normalisasi"):
@@ -742,7 +741,7 @@ def page_input():
         html(
             f"""
             <div class="card-html" style="border-left:5px solid {info['color']};">
-                <div class="card-title"> Rekomendasi Umum</div>
+                <div class="card-title">📝 Rekomendasi Umum</div>
                 <div class="muted">{info['recommendation']}</div>
                 <div style="height:.85rem;"></div>
                 <div class="muted"><b>Catatan:</b> rekomendasi ini bersifat umum, bukan saran medis dan bukan diagnosis.</div>
@@ -750,11 +749,10 @@ def page_input():
             """
         )
 
-    render_cluster_overview()
 
 
 def render_cluster_overview():
-    html('<div class="card-html"><div class="card-title"> Ringkasan Tiga Klaster</div><div class="muted">Setiap klaster merupakan hasil interpretasi dari pola teks yang terbentuk pada penelitian.</div></div>')
+    html('<div class="card-html"><div class="card-title">🧩 Ringkasan Tiga Klaster</div><div class="muted">Setiap klaster merupakan hasil interpretasi dari pola teks yang terbentuk pada penelitian.</div></div>')
     cols = st.columns(3)
     for idx, (cid, info) in enumerate(CLUSTER_INFO.items()):
         with cols[idx]:
@@ -776,7 +774,7 @@ def render_cluster_overview():
 def page_results():
     render_hero(
         "Dashboard Hasil Klastering",
-        "Halaman ini merangkum visualisasi elbow, sebaran PCA, metrik evaluasi, ukuran klaster, dan bigram dominan dari hasil penelitian.",
+        "Halaman ini merangkum visualisasi elbow, sebaran PCA, metrik evaluasi, ukuran klaster, bigram dominan, dan validasi psikolog.",
         "Dashboard Penelitian",
     )
 
@@ -869,62 +867,31 @@ def page_results():
                 )
 
     with st.container(border=True):
-        st.subheader("Top Bigram per Klaster")
-        cols = st.columns(3)
-        for idx, cid in enumerate(CLUSTER_INFO):
-            info = CLUSTER_INFO[cid]
-            with cols[idx]:
-                st.markdown(f"**Cluster {cid}  {info['title']}**")
-                for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 5):
-                    html(f'<span class="pill">{w1} {w2}  {freq}</span>')
-
-
-def page_validation():
-    render_hero(
-        "Validasi Psikolog",
-        "Hasil klastering ditinjau untuk memastikan tema klaster tidak hanya terbaca secara statistik, tetapi juga bermakna dalam konteks psikologis.",
-        "Expert Validation",
-    )
-    render_disclaimer()
-
-    html(
-        """
-        <div class="card-html">
-            <div class="card-title"> Validator Ahli</div>
-            <h3>Ni Gusti Ketut Diana Setiawati, M.Psi., Psikolog</h3>
-            <div class="muted">
-                Psikolog Klinis / Praktik Mandiri Preema Psikologi. Validasi dilakukan pada 2 Juni 2026 untuk menilai kesesuaian hasil pengelompokan dengan gejala klinis dan kategori DSM-5.
-            </div>
-        </div>
-        """
-    )
-
-    cols = st.columns(3)
-    for idx, cid in enumerate(CLUSTER_INFO):
-        info = CLUSTER_INFO[cid]
-        with cols[idx]:
+        st.subheader("Validasi Psikolog")
+        col_val1, col_val2 = st.columns([1, 1.35])
+        with col_val1:
             html(
-                f"""
-                <div class="cluster-card" style="border-top:5px solid {info['color']};">
-                    <span class="badge" style="background:{info['color']};">{cid}</span>
-                    <h3 style="color:{info['color']}; margin-top:.85rem;">Cluster {cid}</h3>
-                    <b>{info['title']}</b>
-                    <div style="margin-top:.7rem;">
-                        {''.join([f'<span class="pill">{kw}</span>' for kw in info['keywords'][:4]])}
+                """
+                <div class="card-html" style="margin-bottom:0;">
+                    <div class="card-title">Validator Ahli</div>
+                    <h3 style="margin-bottom:.35rem;">Ni Gusti Ketut Diana Setiawati, M.Psi., Psikolog</h3>
+                    <div class="muted">
+                        Psikolog Klinis / Praktik Mandiri Preema Psikologi. Validasi dilakukan untuk menilai apakah tema klaster bermakna secara psikologis dan sesuai dengan konteks gejala.
                     </div>
                 </div>
                 """
             )
-
-    with st.container(border=True):
-        st.subheader("Kesimpulan Validasi")
-        html(
-            """
-            <div class="muted">
-                Berdasarkan evaluasi kuantitatif, visualisasi PCA, dan validasi psikolog, K=3 dipilih sebagai jumlah klaster yang paling representatif. K=2 memberikan metrik internal yang lebih kuat, tetapi terlalu luas untuk menjelaskan variasi gejala. Sementara itu, K=5 dari elbow method menghasilkan pembagian yang kurang stabil secara interpretatif.
-            </div>
-            """
-        )
+        with col_val2:
+            html(
+                """
+                <div class="card-html" style="margin-bottom:0;">
+                    <div class="card-title">Kesimpulan Validasi</div>
+                    <div class="muted">
+                        K=3 dipilih karena memberikan pembagian yang lebih interpretatif dibanding K=2 yang terlalu luas, serta lebih stabil secara makna dibanding K=5 dari elbow method. Validasi psikolog digunakan sebagai penguat bahwa klaster yang terbentuk tidak hanya terbaca secara statistik, tetapi juga dapat dijelaskan dari sudut pandang psikologis.
+                    </div>
+                </div>
+                """
+            )
 
     files = sorted(VALIDASI_DIR.glob("*.docx"))
     if files:
@@ -933,6 +900,17 @@ def page_validation():
             for file in files:
                 with open(file, "rb") as fh:
                     st.download_button(f"Unduh {file.name}", fh, file_name=file.name)
+
+    with st.container(border=True):
+        st.subheader("Top Bigram per Klaster")
+        cols = st.columns(3)
+        for idx, cid in enumerate(CLUSTER_INFO):
+            info = CLUSTER_INFO[cid]
+            with cols[idx]:
+                st.markdown(f"**Cluster {cid} — {info['title']}**")
+                for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 5):
+                    html(f'<span class="pill">{w1} {w2} · {freq}</span>')
+
 
 
 def page_about():
@@ -945,7 +923,7 @@ def page_about():
     html(
         f"""
         <div class="card-html">
-            <div class="card-title"> Identitas Tugas Akhir</div>
+            <div class="card-title">🎓 Identitas Tugas Akhir</div>
             <h3>{RESEARCH_INFO['title']}</h3>
             <div class="table-row"><b>Penulis</b><span>{RESEARCH_INFO['author']}</span></div>
             <div class="table-row"><b>NIM</b><span>{RESEARCH_INFO['student_id']}</span></div>
@@ -962,7 +940,7 @@ def page_about():
         html(
             """
             <div class="card-html">
-                <div class="card-title"> Ringkasan Penelitian</div>
+                <div class="card-title">📌 Ringkasan Penelitian</div>
                 <div class="muted">
                     Penelitian ini mengelompokkan teks curahan hati pengguna media sosial ke dalam klaster gejala kesehatan mental. Data teks diproses melalui cleaning, normalisasi, tokenisasi, stopword removal, dan lemmatization. Representasi teks dibuat menggunakan Word2Vec, lalu direduksi dengan PCA dan dikelompokkan menggunakan K-Means.
                 </div>
@@ -973,7 +951,7 @@ def page_about():
         html(
             """
             <div class="card-html">
-                <div class="card-title"> Tujuan Aplikasi</div>
+                <div class="card-title">🎯 Tujuan Aplikasi</div>
                 <div class="muted">
                     Aplikasi ini digunakan sebagai media demonstrasi hasil penelitian. Pengguna dapat memasukkan teks, melihat klaster yang paling sesuai, mengeksplorasi visualisasi hasil klastering, dan membaca ringkasan validasi psikolog.
                 </div>
@@ -981,7 +959,16 @@ def page_about():
             """
         )
 
-    render_cluster_overview()
+    html(
+        """
+        <div class="card-html">
+            <div class="card-title">⚠️ Batasan Aplikasi</div>
+            <div class="muted">
+                Aplikasi ini bukan alat diagnosis. Hasil yang ditampilkan hanya menunjukkan kemiripan teks dengan pola klaster pada data penelitian. Interpretasi klinis tetap memerlukan evaluasi psikolog atau psikiater.
+            </div>
+        </div>
+        """
+    )
 
 
 # =========================
@@ -993,7 +980,5 @@ if page == "Input Teks":
     page_input()
 elif page == "Hasil Penelitian":
     page_results()
-elif page == "Validasi":
-    page_validation()
 else:
     page_about()
