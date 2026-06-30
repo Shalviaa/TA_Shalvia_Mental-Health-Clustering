@@ -5,7 +5,7 @@ Aplikasi Streamlit untuk pemetaan teks ke klaster gejala kesehatan mental berdas
 ## File utama
 
 - `app.py` - aplikasi Streamlit
-- `data/w2v_model_tuned_pca100.pkl` - model Word2Vec hasil penelitian
+- `data/w2v_vectors_pca100.npz` - vektor Word2Vec hasil ekspor dari model penelitian
 - `data/hasil_clustering_w2v_tuned_pca100.csv` - hasil klastering K=3
 - `data/bigrams_w2v_tuning_results_pca100.csv` - hasil tuning Word2Vec
 - `data/validasi/*.docx` - dokumen validasi psikolog dan kata kunci DSM-5
@@ -28,3 +28,5 @@ deployment/app.py
 ```
 
 4. Deploy.
+
+Catatan: file `.pkl` asli tetap berada di folder `output`, sedangkan deployment memakai format `.npz` agar tidak perlu menginstall `gensim` di Streamlit Cloud.

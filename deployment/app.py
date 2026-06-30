@@ -9,7 +9,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from gensim.models import Word2Vec
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import calinski_harabasz_score, davies_bouldin_score, silhouette_score
@@ -22,7 +21,7 @@ VALIDASI_DIR = DATA_DIR / "validasi"
 
 CLUSTER_PATH = DATA_DIR / "hasil_clustering_w2v_tuned_pca100.csv"
 TUNING_PATH = DATA_DIR / "bigrams_w2v_tuning_results_pca100.csv"
-MODEL_PATH = DATA_DIR / "w2v_model_tuned_pca100.pkl"
+VECTOR_PATH = DATA_DIR / "w2v_vectors_pca100.npz"
 
 CLUSTER_INFO = {
     0: {
@@ -177,8 +176,12 @@ def load_tuning_data():
 
 
 @st.cache_resource(show_spinner=False)
-def load_model():
-    return Word2Vec.load(str(MODEL_PATH))
+def load_word_vectors():
+    data = np.load(VECTOR_PATH, allow_pickle=True)
+    words = data["words"].tolist()
+    vectors = data["vectors"].astype("float32")
+    vocab = {word: idx for idx, word in enumerate(words)}
+    return vocab, vectors
 
 
 @st.cache_data(show_spinner=False)
@@ -220,19 +223,19 @@ def preprocess_text(text):
     return " ".join(words), words
 
 
-def document_vector(tokens, model):
-    vecs = [model.wv[w] for w in tokens if w in model.wv]
-    if not vecs:
-        return np.zeros(model.vector_size)
-    return np.mean(vecs, axis=0)
+def document_vector(tokens, vocab, vectors):
+    rows = [vectors[vocab[word]] for word in tokens if word in vocab]
+    if not rows:
+        return np.zeros(vectors.shape[1], dtype="float32")
+    return np.mean(rows, axis=0)
 
 
 @st.cache_data(show_spinner=False)
-def compute_doc_vectors(_model_key="default"):
+def compute_doc_vectors(_vectors_key="default"):
     df = load_cluster_data()
-    model = load_model()
-    vectors = np.vstack([document_vector(tokens, model) for tokens in df["tokens_lemma"]])
-    return vectors
+    vocab, word_vectors = load_word_vectors()
+    doc_vectors = np.vstack([document_vector(tokens, vocab, word_vectors) for tokens in df["tokens_lemma"]])
+    return doc_vectors
 
 
 @st.cache_data(show_spinner=False)
@@ -262,9 +265,9 @@ def keyword_fallback_score(tokens, cluster_id):
 
 
 def predict_cluster(text):
-    model = load_model()
+    vocab, word_vectors = load_word_vectors()
     normalized, tokens = preprocess_text(text)
-    vec = document_vector(tokens, model)
+    vec = document_vector(tokens, vocab, word_vectors)
     centroids = compute_centroids()
     raw_scores = {}
     for cluster_id, centroid in centroids.items():
