@@ -30,3 +30,14 @@ deployment/app.py
 4. Deploy.
 
 Catatan: file `.pkl` asli tetap berada di folder `output`, sedangkan deployment memakai format `.npz` agar tidak perlu menginstall `gensim` di Streamlit Cloud.
+
+
+## Sumber Kamus dan Keyword
+
+- `kamusalay .csv`: kamus alay dari sumber publik/GitHub, digunakan untuk normalisasi kata tidak baku.
+- `slang_indo.csv`: kamus slang Indonesia dari sumber publik/GitHub, digunakan untuk normalisasi bahasa informal media sosial.
+- `custom_stopword.csv`: gabungan dari `stopwords-id.txt` milik stopwords-iso (https://github.com/stopwords-iso/stopwords-id/blob/master/stopwords-id.txt), tambahan berbantuan AI, dan kurasi manual peneliti.
+- `tambahan_typo.csv`: koreksi typo tambahan berdasarkan validasi manual peneliti terhadap token yang muncul pada dataset.
+- `keywords_mental_health.csv`: keyword disusun berdasarkan rujukan gejala DSM-5 untuk mendukung filtering dan interpretasi konteks kesehatan mental.
+
+Validasi kamus dilakukan melalui pengecekan sumber, kurasi terhadap konteks dataset, validasi manual peneliti, dan validasi ahli pada hasil akhir klaster. Aplikasi ini bukan alat diagnosis klinis.

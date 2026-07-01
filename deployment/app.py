@@ -453,7 +453,7 @@ def render_sidebar():
     )
     page = st.sidebar.radio(
         "Menu",
-        ["Input Teks", "Hasil Penelitian", "Tentang"],
+        ["Input Teks", "Hasil Penelitian", "Informasi Penelitian"],
         label_visibility="collapsed",
     )
     st.sidebar.markdown("---")
@@ -948,9 +948,9 @@ def page_results():
 
 def page_about():
     render_hero(
-        "Tentang Penelitian",
+        "Informasi Penelitian",
         "Informasi singkat mengenai Tugas Akhir, metode yang digunakan, dan tujuan aplikasi sebagai media demonstrasi hasil clustering.",
-        "Profil Penelitian",
+        "Informasi Tugas Akhir",
     )
 
     html(
@@ -1013,5 +1013,7 @@ if page == "Input Teks":
     page_input()
 elif page == "Hasil Penelitian":
     page_results()
+elif page == "Informasi Penelitian":
+    page_about()
 else:
     page_about()
