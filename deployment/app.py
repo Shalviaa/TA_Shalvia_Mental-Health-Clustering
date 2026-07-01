@@ -422,6 +422,52 @@ textarea, input {
     line-height: 1.55;
     margin-top: 1rem;
 }
+.compact-title h1, .compact-title {
+    font-size: 2rem !important;
+    margin: 0 0 .15rem 0 !important;
+    line-height: 1 !important;
+}
+.compact-caption {
+    color: var(--muted);
+    font-size: .86rem;
+    margin-bottom: .45rem;
+}
+.mini-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .55rem;
+    margin: .35rem 0 .55rem;
+}
+.mini-stat {
+    border-radius: 16px;
+    padding: .55rem .75rem;
+    background: rgba(255,255,255,.9);
+    border: 1px solid rgba(148, 163, 184, .25);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .04);
+}
+.mini-stat .stat-label { font-size: .74rem; margin-bottom:.08rem; }
+.mini-stat .stat-value { font-size: 1.08rem; }
+.compact-panel {
+    border: 1px solid rgba(148, 163, 184, .35);
+    border-radius: 16px;
+    padding: .65rem .75rem;
+    background: rgba(255,255,255,.82);
+    min-height: 0;
+}
+.compact-panel h4 { margin:0 0 .35rem 0; font-size:.92rem; }
+.compact-row { border-top: 1px solid #e2e8f0; padding: .34rem 0; }
+.compact-row:first-of-type { border-top: 0; }
+.compact-text { color: var(--muted); font-size: .76rem; line-height: 1.35; }
+.compact-pill {
+    display:inline-flex;
+    border-radius:999px;
+    padding:.22rem .45rem;
+    margin:.12rem .1rem .12rem 0;
+    background:#edf4ff;
+    color:#1d4ed8;
+    font-size:.68rem;
+    font-weight:800;
+}
 
 @media (max-width: 900px) {
     .stat-grid { grid-template-columns: 1fr; }
@@ -791,8 +837,8 @@ def render_cluster_overview():
 
 
 def page_results():
-    st.markdown("# Hasil Penelitian")
-    st.caption("Ringkasan visualisasi, metrik evaluasi, bigram dominan, dan interpretasi validasi dalam satu tampilan ringkas.")
+    st.markdown('<div class="compact-title">Hasil Penelitian</div>', unsafe_allow_html=True)
+    html('<div class="compact-caption">Ringkasan metrik, visualisasi, bigram dominan, interpretasi klaster, dan validasi psikolog.</div>')
 
     df = load_cluster_data()
     plot_df, metrics_df = compute_visual_data()
@@ -800,81 +846,78 @@ def page_results():
 
     html(
         f"""
-        <div class="stat-grid" style="margin:.45rem 0 .8rem;">
-            <div class="stat-card" style="padding:.8rem .95rem;"><div class="stat-label">Silhouette K=3</div><div class="stat-value">{VALIDATION_METRICS['silhouette']:.4f}</div></div>
-            <div class="stat-card" style="padding:.8rem .95rem;"><div class="stat-label">Calinski-Harabasz</div><div class="stat-value">{VALIDATION_METRICS['calinski']:,.2f}</div></div>
-            <div class="stat-card" style="padding:.8rem .95rem;"><div class="stat-label">Davies-Bouldin</div><div class="stat-value">{VALIDATION_METRICS['davies']:.4f}</div></div>
+        <div class="mini-stat-grid">
+            <div class="mini-stat"><div class="stat-label">Silhouette K=3</div><div class="stat-value">{VALIDATION_METRICS['silhouette']:.4f}</div></div>
+            <div class="mini-stat"><div class="stat-label">Calinski-Harabasz</div><div class="stat-value">{VALIDATION_METRICS['calinski']:,.2f}</div></div>
+            <div class="mini-stat"><div class="stat-label">Davies-Bouldin</div><div class="stat-value">{VALIDATION_METRICS['davies']:.4f}</div></div>
         </div>
         """
     )
 
-    col_chart1, col_chart2 = st.columns(2)
-    with col_chart1:
-        with st.container(border=True):
-            st.markdown("**Elbow / Knee Locator**")
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=metrics_df["K"],
-                y=metrics_df["Inertia"],
-                mode="lines+markers",
-                line=dict(color="#3157d5", width=3),
-                marker=dict(size=7),
-            ))
-            fig.add_vline(x=5, line_dash="dash", line_color="#7c3aed")
-            fig.update_layout(xaxis_title="K", yaxis_title="Inertia")
-            st.plotly_chart(style_plotly(fig, 245), use_container_width=True)
-    with col_chart2:
-        with st.container(border=True):
-            st.markdown("**PCA Scatter Plot**")
-            fig = px.scatter(
-                plot_df,
-                x="PC1",
-                y="PC2",
-                color="label",
-                color_discrete_map={"Cluster 0": "#159947", "Cluster 1": "#2563eb", "Cluster 2": "#7c3aed"},
-                opacity=0.7,
+    chart1, chart2 = st.columns(2)
+    with chart1:
+        html('<div class="compact-panel"><h4>Elbow / Knee Locator</h4>')
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=metrics_df["K"],
+            y=metrics_df["Inertia"],
+            mode="lines+markers",
+            line=dict(color="#3157d5", width=3),
+            marker=dict(size=6),
+        ))
+        fig.add_vline(x=5, line_dash="dash", line_color="#7c3aed")
+        fig.update_layout(xaxis_title="K", yaxis_title="Inertia")
+        st.plotly_chart(style_plotly(fig, 210), use_container_width=True, config={"displayModeBar": False})
+        html('</div>')
+    with chart2:
+        html('<div class="compact-panel"><h4>PCA Scatter Plot</h4>')
+        fig = px.scatter(
+            plot_df,
+            x="PC1",
+            y="PC2",
+            color="label",
+            color_discrete_map={"Cluster 0": "#159947", "Cluster 1": "#2563eb", "Cluster 2": "#7c3aed"},
+            opacity=0.65,
+        )
+        st.plotly_chart(style_plotly(fig, 210), use_container_width=True, config={"displayModeBar": False})
+        html('</div>')
+
+    col_a, col_b, col_c = st.columns([1.05, 1.25, .9])
+    with col_a:
+        html('<div class="compact-panel"><h4>Ukuran & Bigram</h4>')
+        for cid, info in CLUSTER_INFO.items():
+            bigrams = "".join([f'<span class="compact-pill">{w1} {w2} {freq}</span>' for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 3)])
+            html(
+                f"""
+                <div class="compact-row">
+                    <b style="color:{info['color']};">Cluster {cid}</b> <span class="compact-text">n={counts.get(cid, 0):,}</span><br/>
+                    {bigrams}
+                </div>
+                """
             )
-            st.plotly_chart(style_plotly(fig, 245), use_container_width=True)
-
-    left, right = st.columns([.95, 1.05])
-    with left:
-        with st.container(border=True):
-            st.markdown("**Ukuran Klaster dan Bigram Dominan**")
-            for cid, info in CLUSTER_INFO.items():
-                bigrams = "".join([f'<span class="pill">{w1} {w2} - {freq}</span>' for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 5)])
-                html(
-                    f"""
-                    <div style="border-top:1px solid #e2e8f0;padding:.55rem 0;">
-                        <span class="badge badge-sm" style="background:{info['color']};">{cid}</span>
-                        <b style="margin-left:.45rem;">Cluster {cid} - {info['title']}</b>
-                        <span class="muted" style="float:right;">n = {counts.get(cid, 0):,}</span>
-                        <div style="margin-top:.35rem;">{bigrams}</div>
-                    </div>
-                    """
-                )
-    with right:
-        with st.container(border=True):
-            st.markdown("**Interpretasi Hasil Klaster**")
-            for cid, info in CLUSTER_INFO.items():
-                interpretation = CLUSTER_INTERPRETATION[cid]
-                html(
-                    f"""
-                    <div style="border-left:4px solid {info['color']};padding:.45rem .75rem;margin:.45rem 0;background:{info['soft']};border-radius:14px;">
-                        <b>Cluster {cid} - {info['title']}</b>
-                        <div class="muted" style="margin-top:.2rem;"><b>Interpretasi:</b> {interpretation['clinical']}</div>
-                        <div class="muted"><b>DSM-5:</b> {interpretation['dsm']}</div>
-                    </div>
-                    """
-                )
-
-    html(f'<div class="disclaimer" style="margin-top:.7rem;">{VALIDATOR_NOTE}</div>')
-
-    with st.container(border=True):
-        st.markdown("**Validasi Psikolog**")
+        html('</div>')
+    with col_b:
+        html('<div class="compact-panel"><h4>Interpretasi Klaster</h4>')
+        for cid, info in CLUSTER_INFO.items():
+            interpretation = CLUSTER_INTERPRETATION[cid]
+            html(
+                f"""
+                <div class="compact-row" style="border-left:3px solid {info['color']};padding-left:.45rem;">
+                    <b>Cluster {cid} - {info['title']}</b>
+                    <div class="compact-text">{interpretation['clinical']}</div>
+                    <div class="compact-text"><b>DSM-5:</b> {interpretation['dsm']}</div>
+                </div>
+                """
+            )
+        html('</div>')
+    with col_c:
         html(
             """
-            <div class="muted">
-                Validator ahli: <b>Ni Gusti Ketut Diana Setiawati, M.Psi., Psikolog</b>. K=3 dipilih karena pembagiannya lebih interpretatif dibanding K=2 yang terlalu luas, serta lebih stabil secara makna dibanding K=5 dari elbow method.
+            <div class="compact-panel">
+                <h4>Validasi</h4>
+                <div class="compact-text"><b>Validator:</b><br/>Ni Gusti Ketut Diana Setiawati, M.Psi., Psikolog.</div>
+                <div class="compact-text" style="margin-top:.4rem;">K=3 dipilih karena lebih interpretatif dibanding K=2 dan lebih stabil secara makna dibanding K=5.</div>
+                <div class="compact-text" style="margin-top:.4rem;"><b>Catatan:</b> interpretasi pada tingkat gejala/tema, bukan diagnosis klinis.</div>
             </div>
             """
         )
