@@ -791,11 +791,8 @@ def render_cluster_overview():
 
 
 def page_results():
-    render_hero(
-        "Dashboard Hasil Klastering",
-        "Halaman ini merangkum visualisasi elbow, sebaran PCA, metrik evaluasi, ukuran klaster, bigram dominan, dan validasi psikolog.",
-        "Dashboard Penelitian",
-    )
+    st.markdown("# Hasil Penelitian")
+    st.caption("Ringkasan visualisasi, metrik evaluasi, bigram dominan, dan interpretasi validasi dalam satu tampilan ringkas.")
 
     df = load_cluster_data()
     plot_df, metrics_df = compute_visual_data()
@@ -803,150 +800,84 @@ def page_results():
 
     html(
         f"""
-        <div class="stat-grid">
-            <div class="stat-card"><div class="stat-label">Silhouette K=3</div><div class="stat-value">{VALIDATION_METRICS['silhouette']:.4f}</div></div>
-            <div class="stat-card"><div class="stat-label">Calinski-Harabasz</div><div class="stat-value">{VALIDATION_METRICS['calinski']:,.2f}</div></div>
-            <div class="stat-card"><div class="stat-label">Davies-Bouldin</div><div class="stat-value">{VALIDATION_METRICS['davies']:.4f}</div></div>
+        <div class="stat-grid" style="margin:.45rem 0 .8rem;">
+            <div class="stat-card" style="padding:.8rem .95rem;"><div class="stat-label">Silhouette K=3</div><div class="stat-value">{VALIDATION_METRICS['silhouette']:.4f}</div></div>
+            <div class="stat-card" style="padding:.8rem .95rem;"><div class="stat-label">Calinski-Harabasz</div><div class="stat-value">{VALIDATION_METRICS['calinski']:,.2f}</div></div>
+            <div class="stat-card" style="padding:.8rem .95rem;"><div class="stat-label">Davies-Bouldin</div><div class="stat-value">{VALIDATION_METRICS['davies']:.4f}</div></div>
         </div>
         """
     )
 
-    col1, col2 = st.columns(2)
-    with col1:
+    col_chart1, col_chart2 = st.columns(2)
+    with col_chart1:
         with st.container(border=True):
-            st.subheader("Elbow / Knee Locator")
+            st.markdown("**Elbow / Knee Locator**")
             fig = go.Figure()
             fig.add_trace(go.Scatter(
                 x=metrics_df["K"],
                 y=metrics_df["Inertia"],
                 mode="lines+markers",
-                line=dict(color="#3157d5", width=4),
-                marker=dict(size=8),
+                line=dict(color="#3157d5", width=3),
+                marker=dict(size=7),
             ))
             fig.add_vline(x=5, line_dash="dash", line_color="#7c3aed")
-            fig.add_annotation(
-                x=5,
-                y=float(metrics_df.loc[metrics_df["K"] == 5, "Inertia"].iloc[0]),
-                text="Elbow K=5",
-                showarrow=True,
-                arrowhead=2,
-                bgcolor="white",
-                bordercolor="#d9e2ef",
-            )
-            fig.update_layout(xaxis_title="Jumlah Klaster (K)", yaxis_title="Inertia")
-            st.plotly_chart(style_plotly(fig, 360), use_container_width=True)
-            st.caption("Elbow method menunjukkan K=5 sebagai kandidat awal, tetapi interpretasi akhir tetap mempertimbangkan validasi psikolog dan metrik lain.")
-
-    with col2:
+            fig.update_layout(xaxis_title="K", yaxis_title="Inertia")
+            st.plotly_chart(style_plotly(fig, 245), use_container_width=True)
+    with col_chart2:
         with st.container(border=True):
-            st.subheader("PCA Scatter Plot")
+            st.markdown("**PCA Scatter Plot**")
             fig = px.scatter(
                 plot_df,
                 x="PC1",
                 y="PC2",
                 color="label",
                 color_discrete_map={"Cluster 0": "#159947", "Cluster 1": "#2563eb", "Cluster 2": "#7c3aed"},
-                opacity=0.72,
+                opacity=0.7,
             )
-            st.plotly_chart(style_plotly(fig, 360), use_container_width=True)
-            st.caption("Visualisasi PCA 2D digunakan untuk melihat pola sebaran data berdasarkan tiga klaster.")
+            st.plotly_chart(style_plotly(fig, 245), use_container_width=True)
 
-    col3, col4 = st.columns([1, 1])
-    with col3:
+    left, right = st.columns([.95, 1.05])
+    with left:
         with st.container(border=True):
-            st.subheader("Ukuran Klaster")
+            st.markdown("**Ukuran Klaster dan Bigram Dominan**")
             for cid, info in CLUSTER_INFO.items():
+                bigrams = "".join([f'<span class="pill">{w1} {w2} - {freq}</span>' for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 5)])
                 html(
                     f"""
-                    <div style="display:grid;grid-template-columns:44px 1fr 86px;gap:.7rem;align-items:center;background:{info['soft']};border-radius:16px;padding:.75rem .9rem;margin:.45rem 0;">
+                    <div style="border-top:1px solid #e2e8f0;padding:.55rem 0;">
                         <span class="badge badge-sm" style="background:{info['color']};">{cid}</span>
-                        <div><b>Cluster {cid}</b><br/><span class="muted">{info['short']}</span></div>
-                        <b style="color:{info['color']};text-align:right;">n = {counts.get(cid, 0):,}</b>
+                        <b style="margin-left:.45rem;">Cluster {cid} - {info['title']}</b>
+                        <span class="muted" style="float:right;">n = {counts.get(cid, 0):,}</span>
+                        <div style="margin-top:.35rem;">{bigrams}</div>
                     </div>
                     """
                 )
-
-    with col4:
+    with right:
         with st.container(border=True):
-            st.subheader("Alasan K=3")
-            reasons = [
-                "K=2 memiliki metrik kuat, tetapi tema terlalu luas.",
-                "K=3 lebih mudah diinterpretasikan secara psikologis.",
-                "Pola PCA masih menunjukkan pemisahan yang cukup jelas.",
-                "Validasi psikolog mendukung tiga tema utama.",
-            ]
-            for i, reason in enumerate(reasons, 1):
+            st.markdown("**Interpretasi Hasil Klaster**")
+            for cid, info in CLUSTER_INFO.items():
+                interpretation = CLUSTER_INTERPRETATION[cid]
                 html(
                     f"""
-                    <div style="display:grid;grid-template-columns:34px 1fr;gap:.75rem;align-items:start;padding:.55rem 0;border-bottom:1px solid #e2e8f0;">
-                        <span class="badge badge-sm" style="background:#3157d5;">{i}</span>
-                        <span>{reason}</span>
+                    <div style="border-left:4px solid {info['color']};padding:.45rem .75rem;margin:.45rem 0;background:{info['soft']};border-radius:14px;">
+                        <b>Cluster {cid} - {info['title']}</b>
+                        <div class="muted" style="margin-top:.2rem;"><b>Interpretasi:</b> {interpretation['clinical']}</div>
+                        <div class="muted"><b>DSM-5:</b> {interpretation['dsm']}</div>
                     </div>
                     """
                 )
 
-    st.subheader("Validasi Psikolog")
-    col_val1, col_val2 = st.columns([1, 1.35])
-    with col_val1:
-        html(
-            """
-            <div class="card-html" style="margin-bottom:0;">
-                <div class="card-title">Validator Ahli</div>
-                <h3 style="margin-bottom:.35rem;">Ni Gusti Ketut Diana Setiawati, M.Psi., Psikolog</h3>
-                <div class="muted">
-                    Psikolog Klinis / Praktik Mandiri Preema Psikologi. Validasi dilakukan untuk menilai apakah tema klaster bermakna secara psikologis dan sesuai dengan konteks gejala.
-                </div>
-            </div>
-            """
-        )
-    with col_val2:
-        html(
-            """
-            <div class="card-html" style="margin-bottom:0;">
-                <div class="card-title">Kesimpulan Validasi</div>
-                <div class="muted">
-                    K=3 dipilih karena memberikan pembagian yang lebih interpretatif dibanding K=2 yang terlalu luas, serta lebih stabil secara makna dibanding K=5 dari elbow method. Validasi psikolog digunakan sebagai penguat bahwa klaster yang terbentuk tidak hanya terbaca secara statistik, tetapi juga dapat dijelaskan dari sudut pandang psikologis.
-                </div>
-            </div>
-            """
-        )
-
-    files = sorted(VALIDASI_DIR.glob("*.docx"))
-    if files:
-        with st.container(border=True):
-            st.subheader("Dokumen Validasi")
-            for file in files:
-                with open(file, "rb") as fh:
-                    st.download_button(f"Unduh {file.name}", fh, file_name=file.name)
+    html(f'<div class="disclaimer" style="margin-top:.7rem;">{VALIDATOR_NOTE}</div>')
 
     with st.container(border=True):
-        st.subheader("Top Bigram per Klaster")
-        cols = st.columns(3)
-        for idx, cid in enumerate(CLUSTER_INFO):
-            info = CLUSTER_INFO[cid]
-            with cols[idx]:
-                st.markdown(f"**Cluster {cid} - {info['title']}**")
-                for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 5):
-                    html(f'<span class="pill">{w1} {w2} - {freq}</span>')
-
-    st.subheader("Interpretasi Hasil Klaster")
-    st.caption("Interpretasi berikut diambil dari dokumen validasi hasil klastering dan digunakan sebagai penjelasan tema psikologis tiap klaster.")
-    cols = st.columns(3)
-    for idx, (cid, info) in enumerate(CLUSTER_INFO.items()):
-        interpretation = CLUSTER_INTERPRETATION[cid]
-        with cols[idx]:
-            html(
-                f"""
-                <div class="cluster-card" style="border-top:5px solid {info['color']}; min-height:360px;">
-                    <span class="badge" style="background:{info['color']};">{cid}</span>
-                    <h3 style="color:{info['color']}; margin-top:.85rem;">Cluster {cid}</h3>
-                    <b>{info['title']}</b>
-                    <div class="muted" style="margin-top:.85rem;"><b>Interpretasi klinis:</b><br/>{interpretation['clinical']}</div>
-                    <div class="muted" style="margin-top:.85rem;"><b>Kesesuaian dengan DSM-5:</b><br/>{interpretation['dsm']}</div>
-                </div>
-                """
-            )
-    html(f'<div class="disclaimer" style="margin-top:1rem;">{VALIDATOR_NOTE}</div>')
+        st.markdown("**Validasi Psikolog**")
+        html(
+            """
+            <div class="muted">
+                Validator ahli: <b>Ni Gusti Ketut Diana Setiawati, M.Psi., Psikolog</b>. K=3 dipilih karena pembagiannya lebih interpretatif dibanding K=2 yang terlalu luas, serta lebih stabil secara makna dibanding K=5 dari elbow method.
+            </div>
+            """
+        )
 
 
 def page_about():
