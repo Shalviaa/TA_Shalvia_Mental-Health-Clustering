@@ -278,61 +278,6 @@ textarea, input {
     color: var(--ink);
     margin-bottom: .45rem;
 }
-
-.balanced-grid {
-    display: grid;
-    grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
-    gap: 1rem;
-    align-items: stretch;
-    margin: .85rem 0 .95rem;
-}
-.balanced-panel {
-    border: 1px solid rgba(148, 163, 184, .38);
-    border-radius: 18px;
-    background: rgba(255, 255, 255, .72);
-    padding: 1rem 1.05rem;
-    min-height: 344px;
-    display: flex;
-    flex-direction: column;
-}
-.balanced-panel-title {
-    font-weight: 800;
-    color: #111827;
-    margin: 0 0 .55rem;
-}
-.balanced-list {
-    display: grid;
-    grid-template-rows: repeat(3, 1fr);
-    flex: 1;
-}
-.balanced-item {
-    border-top: 1px solid #e2e8f0;
-    padding: .65rem 0;
-}
-.balanced-item:first-child {
-    border-top: 0;
-}
-.balanced-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .8rem;
-    margin-bottom: .35rem;
-}
-.balanced-name {
-    display: inline-flex;
-    align-items: center;
-    gap: .45rem;
-    font-weight: 800;
-    color: #111827;
-}
-.interpret-box {
-    border-left: 4px solid var(--cluster-color);
-    background: var(--cluster-soft);
-    border-radius: 14px;
-    padding: .72rem .85rem;
-    height: 100%;
-}
 .muted {
     color: var(--muted);
     font-size: .94rem;
@@ -891,51 +836,36 @@ def page_results():
             )
             st.plotly_chart(style_plotly(fig, 245), use_container_width=True)
 
-    bigram_blocks = []
-    interpretation_blocks = []
-    for cid, info in CLUSTER_INFO.items():
-        bigrams = "".join(
-            [f'<span class="pill">{w1} {w2} - {freq}</span>' for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 5)]
-        )
-        bigram_blocks.append(
-            f"""
-            <div class="balanced-item">
-                <div class="balanced-heading">
-                    <div class="balanced-name"><span class="badge badge-sm" style="background:{info['color']};">{cid}</span>Cluster {cid} - {info['title']}</div>
-                    <span class="muted">n = {counts.get(cid, 0):,}</span>
-                </div>
-                <div>{bigrams}</div>
-            </div>
-            """
-        )
-
-        interpretation = CLUSTER_INTERPRETATION[cid]
-        interpretation_blocks.append(
-            f"""
-            <div class="balanced-item">
-                <div class="interpret-box" style="--cluster-color:{info['color']}; --cluster-soft:{info['soft']};">
-                    <b>Cluster {cid} - {info['title']}</b>
-                    <div class="muted" style="margin-top:.35rem;"><b>Interpretasi:</b> {interpretation['clinical']}</div>
-                    <div class="muted" style="margin-top:.25rem;"><b>DSM-5:</b> {interpretation['dsm']}</div>
-                </div>
-            </div>
-            """
-        )
-
-    html(
-        f"""
-        <div class="balanced-grid">
-            <div class="balanced-panel">
-                <div class="balanced-panel-title">Ukuran Klaster dan Bigram Dominan</div>
-                <div class="balanced-list">{''.join(bigram_blocks)}</div>
-            </div>
-            <div class="balanced-panel">
-                <div class="balanced-panel-title">Interpretasi Hasil Klaster</div>
-                <div class="balanced-list">{''.join(interpretation_blocks)}</div>
-            </div>
-        </div>
-        """
-    )
+    left, right = st.columns([.95, 1.05])
+    with left:
+        with st.container(border=True):
+            st.markdown("**Ukuran Klaster dan Bigram Dominan**")
+            for cid, info in CLUSTER_INFO.items():
+                bigrams = "".join([f'<span class="pill">{w1} {w2} - {freq}</span>' for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 5)])
+                html(
+                    f"""
+                    <div style="border-top:1px solid #e2e8f0;padding:.55rem 0;">
+                        <span class="badge badge-sm" style="background:{info['color']};">{cid}</span>
+                        <b style="margin-left:.45rem;">Cluster {cid} - {info['title']}</b>
+                        <span class="muted" style="float:right;">n = {counts.get(cid, 0):,}</span>
+                        <div style="margin-top:.35rem;">{bigrams}</div>
+                    </div>
+                    """
+                )
+    with right:
+        with st.container(border=True):
+            st.markdown("**Interpretasi Hasil Klaster**")
+            for cid, info in CLUSTER_INFO.items():
+                interpretation = CLUSTER_INTERPRETATION[cid]
+                html(
+                    f"""
+                    <div style="border-left:4px solid {info['color']};padding:.45rem .75rem;margin:.45rem 0;background:{info['soft']};border-radius:14px;">
+                        <b>Cluster {cid} - {info['title']}</b>
+                        <div class="muted" style="margin-top:.2rem;"><b>Interpretasi:</b> {interpretation['clinical']}</div>
+                        <div class="muted"><b>DSM-5:</b> {interpretation['dsm']}</div>
+                    </div>
+                    """
+                )
 
     html(f'<div class="disclaimer" style="margin-top:.7rem;">{VALIDATOR_NOTE}</div>')
 
