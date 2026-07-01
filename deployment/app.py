@@ -98,6 +98,9 @@ DISCLAIMER = (
 
 RESULT_NOTE = "Catatan ini bukan diagnosis klinis dan bukan pengganti konsultasi dengan psikolog atau psikiater."
 
+MIN_KNOWN_TOKENS = 2
+MIN_VOCAB_COVERAGE = 0.30
+
 # =========================
 # STREAMLIT CONFIG & STYLE
 # =========================
@@ -597,9 +600,31 @@ def keyword_fallback_score(tokens, cluster_id):
     return score / max(len(CLUSTER_INFO[cluster_id]["keywords"]), 1)
 
 
+def input_diagnostics(tokens, vocab):
+    known_tokens = [word for word in tokens if word in vocab]
+    unknown_tokens = [word for word in tokens if word not in vocab]
+    total = len(tokens)
+    coverage = len(known_tokens) / total if total else 0.0
+    is_mappable = len(known_tokens) >= MIN_KNOWN_TOKENS and coverage >= MIN_VOCAB_COVERAGE
+    return {
+        "total_tokens": total,
+        "known_tokens": known_tokens,
+        "unknown_tokens": unknown_tokens,
+        "known_count": len(known_tokens),
+        "unknown_count": len(unknown_tokens),
+        "coverage": coverage,
+        "is_mappable": is_mappable,
+    }
+
+
 def predict_cluster(text):
     vocab, word_vectors = load_word_vectors()
     normalized, tokens = preprocess_text(text)
+    diagnostics = input_diagnostics(tokens, vocab)
+
+    if not diagnostics["is_mappable"]:
+        return None, normalized, tokens, {}, {}, diagnostics
+
     vec = document_vector(tokens, vocab, word_vectors)
     centroids = compute_centroids()
 
@@ -618,7 +643,7 @@ def predict_cluster(text):
     else:
         probs = sims / sims.sum()
     score_map = {cluster_id: float(probs[idx]) for idx, cluster_id in enumerate(sorted(raw_scores))}
-    return best_cluster, normalized, tokens, raw_scores, score_map
+    return best_cluster, normalized, tokens, raw_scores, score_map, diagnostics
 
 
 @st.cache_data(show_spinner=False)
@@ -680,7 +705,7 @@ def page_input():
     df = load_cluster_data()
     render_hero(
         "Pemetaan Teks ke Klaster Gejala Kesehatan Mental",
-        "Masukkan teks curahan hati. Sistem akan memetakan teks ke klaster yang paling mirip berdasarkan model Word2Vec, PCA, dan K-Means pada hasil penelitian.",
+        "Masukkan teks curahan hati. Sistem akan mengecek kosakata model terlebih dahulu, lalu menampilkan pemetaan kemiripan ke klaster hasil penelitian jika input masih sesuai cakupan data.",
     )
     render_disclaimer()
 
@@ -708,7 +733,7 @@ def page_input():
         with col_btn:
             run = st.button("Lihat Klaster", type="primary", use_container_width=True)
         with col_hint:
-            st.caption("Teks akan diproses melalui cleaning, normalisasi, stopword removal, dan representasi vektor.")
+            st.caption("Teks akan diproses dan dicek cakupan kosakatanya sebelum dipetakan ke klaster.")
 
     if not run:
         html(
@@ -716,7 +741,7 @@ def page_input():
             <div class="card-html">
                 <div class="card-title">💡 Cara membaca hasil</div>
                 <div class="muted">
-                    Tulis teks, klik tombol <b>Lihat Klaster</b>, lalu aplikasi akan menampilkan satu klaster yang paling sesuai. Hasil ini hanya untuk demonstrasi penelitian, bukan diagnosis klinis.
+                    Tulis teks, klik tombol <b>Lihat Klaster</b>. Aplikasi akan mengecek apakah kosakata input cukup dikenali oleh model. Jika tidak sesuai cakupan data, klaster tidak akan dipaksakan keluar.
                 </div>
             </div>
             """
@@ -728,7 +753,30 @@ def page_input():
         return
 
     with st.spinner("Memproses teks dan menghitung kemiripan klaster..."):
-        cluster_id, normalized, tokens, raw_scores, scores = predict_cluster(text)
+        cluster_id, normalized, tokens, raw_scores, scores, diagnostics = predict_cluster(text)
+
+    if cluster_id is None:
+        st.error("Data belum dapat dipetakan karena kata-kata pada teks berada di luar kosakata model atau terlalu sedikit yang dikenali.")
+        col_a, col_b, col_c = st.columns(3)
+        col_a.metric("Token setelah preprocessing", diagnostics["total_tokens"])
+        col_b.metric("Token dikenali model", diagnostics["known_count"])
+        col_c.metric("Cakupan kosakata", f"{diagnostics['coverage']:.0%}")
+
+        html(
+            """
+            <div class="card-html" style="border-left:5px solid #ef4444;">
+                <div class="card-title">Batasan Pemetaan Data Baru</div>
+                <div class="muted">
+                    Input baru hanya dapat dipetakan jika masih berasal dari domain/populasi yang sama dengan data penelitian dan kosakatanya cukup dikenali oleh Word2Vec. Jika data baru akan dijadikan bagian dari analisis clustering, proses penelitian perlu dijalankan ulang dari preprocessing, pembentukan vektor, PCA, sampai K-Means agar centroid dan hasil klaster menyesuaikan data terbaru.
+                </div>
+            </div>
+            """
+        )
+        with st.expander("Lihat token hasil preprocessing"):
+            st.write("Teks normalisasi:", normalized if normalized else "Tidak ada token setelah preprocessing.")
+            st.write("Token dikenali model:", diagnostics["known_tokens"] or "Tidak ada")
+            st.write("Token di luar kosakata model:", diagnostics["unknown_tokens"] or "Tidak ada")
+        return
 
     info = CLUSTER_INFO[cluster_id]
     html(
@@ -756,15 +804,18 @@ def page_input():
                 st.markdown(f"**Cluster {cid}** · {pct:.0%}")
                 st.progress(pct)
 
-            with st.expander("Lihat teks setelah normalisasi"):
-                st.write(normalized if normalized else "Tidak ada token yang cocok setelah preprocessing.")
+            st.caption(f"Kosakata dikenali model: {diagnostics['known_count']}/{diagnostics['total_tokens']} token ({diagnostics['coverage']:.0%}).")
+            with st.expander("Lihat pengecekan input"):
+                st.write("Teks normalisasi:", normalized if normalized else "Tidak ada token yang cocok setelah preprocessing.")
+                st.write("Token dikenali model:", diagnostics["known_tokens"] or "Tidak ada")
+                st.write("Token di luar kosakata model:", diagnostics["unknown_tokens"] or "Tidak ada")
 
     with col_right:
         html(
             f"""
             <div class="card-html" style="border-left:5px solid {info['color']};">
                 <div class="card-title">Catatan</div>
-                <div class="muted">{RESULT_NOTE}</div>
+                <div class="muted">{RESULT_NOTE}<br><br>Hasil ini hanya menunjukkan kemiripan teks terhadap klaster yang sudah terbentuk. Jika ada tambahan data baru untuk dianalisis sebagai dataset penelitian, seluruh pipeline perlu dijalankan ulang agar tidak terjadi pergeseran centroid dan hasil klaster.</div>
             </div>
             """
         )
@@ -791,8 +842,11 @@ def render_cluster_overview():
 
 
 def page_results():
-    st.markdown("# Hasil Penelitian")
-    st.caption("Ringkasan visualisasi, metrik evaluasi, bigram dominan, dan interpretasi validasi dalam satu tampilan ringkas.")
+    render_hero(
+        "Hasil Penelitian",
+        "Ringkasan visualisasi, metrik evaluasi, bigram dominan, dan interpretasi validasi dalam satu tampilan ringkas.",
+        "Dashboard Penelitian",
+    )
 
     df = load_cluster_data()
     plot_df, metrics_df = compute_visual_data()
