@@ -64,6 +64,23 @@ VALIDATION_METRICS = {
     "davies": 0.8472,
 }
 
+CLUSTER_INTERPRETATION = {
+    0: {
+        "clinical": "Kelompok kata ini menggambarkan permasalahan psikologis yang didominasi gejala kecemasan dengan manifestasi fisik yang kuat.",
+        "dsm": "Generalized Anxiety Disorder",
+    },
+    1: {
+        "clinical": "Kelompok kata ini menggambarkan permasalahan psikologis yang didominasi oleh keputusasaan dan konflik interpersonal, disertai tekanan emosional yang dapat mengarah pada gangguan penyesuaian dengan stressor konflik interpersonal.",
+        "dsm": "Adjustment Disorder with depressed mood",
+    },
+    2: {
+        "clinical": "Kelompok kata ini menggambarkan permasalahan psikologis yang didominasi oleh keputusasaan, kehilangan arah hidup, dan menarik diri dari tekanan yang dihadapi yang mengarah pada gejala depresif.",
+        "dsm": "Major Depressive Disorder",
+    },
+}
+
+VALIDATOR_NOTE = "Interpretasi hasil analisis kata kunci dilakukan pada tingkat gejala dan tema psikologis, bukan diagnosis klinis. Kesesuaian dengan DSM-5 digunakan sebagai kerangka konseptual untuk memahami kemungkinan makna psikologis dari kata-kata yang muncul."
+
 RESEARCH_INFO = {
     "title": "Pengelompokan Gejala Gangguan Kesehatan Mental Berdasarkan Curahan Hati Pengguna di Media Sosial Menggunakan Algoritma K-Means Clustering",
     "author": "Shalvia Retno Salsabil",
@@ -641,26 +658,6 @@ def top_bigrams_by_cluster(df, cluster_id, n=5):
     return Counter(zip(words, words[1:])).most_common(n)
 
 
-def raw_examples_by_cluster(df, cluster_id, n=5, skip_positions=None):
-    source = df.loc[df["cluster"] == cluster_id, "post_text"].dropna().astype(str)
-    skip_positions = set(skip_positions or [])
-    examples = []
-    seen = set()
-    candidate_no = 0
-    for value in source:
-        clean = " ".join(value.split())
-        dedupe_key = clean.lower()
-        if len(clean) < 20 or dedupe_key in seen:
-            continue
-        seen.add(dedupe_key)
-        candidate_no += 1
-        if candidate_no in skip_positions:
-            continue
-        examples.append(html_lib.escape(clean))
-        if len(examples) >= n:
-            break
-    return examples
-
 
 def style_plotly(fig, height=380):
     fig.update_layout(
@@ -932,18 +929,24 @@ def page_results():
                 for (w1, w2), freq in top_bigrams_by_cluster(df, cid, 5):
                     html(f'<span class="pill">{w1} {w2} - {freq}</span>')
 
-    st.subheader("Contoh Teks dari Dataset per Klaster")
-    st.caption("Contoh berikut diambil dari kolom post_text pada dataset hasil clustering. Setiap klaster menampilkan 5 teks terpilih tanpa duplikat.")
-    skip_map = {
-        0: {1, 4, 5},
-        1: {3},
-        2: set(),
-    }
-    for cid, info in CLUSTER_INFO.items():
-        with st.expander(f"Cluster {cid} - {info['title']}", expanded=(cid == 0)):
-            examples = raw_examples_by_cluster(df, cid, 5, skip_map.get(cid))
-            for idx, example in enumerate(examples, 1):
-                html(f'<div class="table-row" style="grid-template-columns:44px 1fr;"><b>{idx}</b><span>{example}</span></div>')
+    st.subheader("Interpretasi Hasil Klaster")
+    st.caption("Interpretasi berikut diambil dari dokumen validasi hasil klastering dan digunakan sebagai penjelasan tema psikologis tiap klaster.")
+    cols = st.columns(3)
+    for idx, (cid, info) in enumerate(CLUSTER_INFO.items()):
+        interpretation = CLUSTER_INTERPRETATION[cid]
+        with cols[idx]:
+            html(
+                f"""
+                <div class="cluster-card" style="border-top:5px solid {info['color']}; min-height:360px;">
+                    <span class="badge" style="background:{info['color']};">{cid}</span>
+                    <h3 style="color:{info['color']}; margin-top:.85rem;">Cluster {cid}</h3>
+                    <b>{info['title']}</b>
+                    <div class="muted" style="margin-top:.85rem;"><b>Interpretasi klinis:</b><br/>{interpretation['clinical']}</div>
+                    <div class="muted" style="margin-top:.85rem;"><b>Kesesuaian dengan DSM-5:</b><br/>{interpretation['dsm']}</div>
+                </div>
+                """
+            )
+    html(f'<div class="disclaimer" style="margin-top:1rem;">{VALIDATOR_NOTE}</div>')
 
 
 def page_about():
