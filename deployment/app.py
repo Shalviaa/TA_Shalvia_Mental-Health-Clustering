@@ -100,6 +100,7 @@ RESULT_NOTE = "Catatan ini bukan diagnosis klinis dan bukan pengganti konsultasi
 
 MIN_KNOWN_TOKENS = 2
 MIN_VOCAB_COVERAGE = 0.30
+MIN_CONTEXT_MATCHES = 1
 
 # =========================
 # STREAMLIT CONFIG & STYLE
@@ -536,14 +537,7 @@ def load_kamus():
     return master, stopwords
 
 
-# =========================
-# PREPROCESSING & PREDICTION
-# =========================
-def normalize_repeated_letters(word):
-    return re.sub(r"(.)\1{2,}", r"\1\1", word)
-
-
-def preprocess_text(text):
+def clean_words(text, remove_stopwords=True):
     master, stopwords = load_kamus()
     text = str(text).lower()
     text = re.sub(r"http\S+|www\S+", " ", text)
@@ -556,7 +550,56 @@ def preprocess_text(text):
     text = re.sub(r"[^\x00-\x7F]", " ", text)
     words = [normalize_repeated_letters(w) for w in text.split()]
     words = [master.get(w, w) for w in words]
-    words = [w for w in words if w not in stopwords and len(w) > 2]
+    if remove_stopwords:
+        words = [w for w in words if w not in stopwords and len(w) > 2]
+    else:
+        words = [w for w in words if len(w) > 2]
+    return words
+
+
+@st.cache_data(show_spinner=False)
+def load_context_keywords():
+    path = KAMUS_DIR / "keywords_mental_health.csv"
+    if not path.exists():
+        return set()
+
+    df = pd.read_csv(path)
+    col = "keyword" if "keyword" in df.columns else df.columns[0]
+    raw_keywords = [str(x).strip() for x in df[col].dropna() if str(x).strip()]
+
+    single_terms = set()
+    for keyword in raw_keywords:
+        words = clean_words(keyword, remove_stopwords=True)
+        if len(words) == 1 and len(clean_words(keyword, remove_stopwords=False)) == 1:
+            single_terms.add(words[0])
+
+    context_keywords = set()
+    for keyword in raw_keywords:
+        words = clean_words(keyword, remove_stopwords=True)
+        if len(words) > 1:
+            context_keywords.add(" ".join(words))
+        elif len(words) == 1 and words[0] in single_terms:
+            context_keywords.add(words[0])
+
+    for info in CLUSTER_INFO.values():
+        for keyword in info["keywords"]:
+            words = clean_words(keyword, remove_stopwords=True)
+            if len(words) > 1:
+                context_keywords.add(" ".join(words))
+            elif len(words) == 1 and words[0] in single_terms:
+                context_keywords.add(words[0])
+    return context_keywords
+
+
+# =========================
+# PREPROCESSING & PREDICTION
+# =========================
+def normalize_repeated_letters(word):
+    return re.sub(r"(.)\1{2,}", r"\1\1", word)
+
+
+def preprocess_text(text):
+    words = clean_words(text, remove_stopwords=True)
     return " ".join(words), words
 
 
@@ -605,7 +648,13 @@ def input_diagnostics(tokens, vocab):
     unknown_tokens = [word for word in tokens if word not in vocab]
     total = len(tokens)
     coverage = len(known_tokens) / total if total else 0.0
-    is_mappable = len(known_tokens) >= MIN_KNOWN_TOKENS and coverage >= MIN_VOCAB_COVERAGE
+
+    joined = f" {' '.join(tokens)} "
+    context_keywords = load_context_keywords()
+    context_matches = sorted([kw for kw in context_keywords if f" {kw} " in joined])
+    context_ok = len(context_matches) >= MIN_CONTEXT_MATCHES
+    vocab_ok = len(known_tokens) >= MIN_KNOWN_TOKENS and coverage >= MIN_VOCAB_COVERAGE
+
     return {
         "total_tokens": total,
         "known_tokens": known_tokens,
@@ -613,7 +662,11 @@ def input_diagnostics(tokens, vocab):
         "known_count": len(known_tokens),
         "unknown_count": len(unknown_tokens),
         "coverage": coverage,
-        "is_mappable": is_mappable,
+        "context_matches": context_matches,
+        "context_count": len(context_matches),
+        "context_ok": context_ok,
+        "vocab_ok": vocab_ok,
+        "is_mappable": context_ok and vocab_ok,
     }
 
 
@@ -733,7 +786,7 @@ def page_input():
         with col_btn:
             run = st.button("Lihat Klaster", type="primary", use_container_width=True)
         with col_hint:
-            st.caption("Teks akan diproses dan dicek cakupan kosakatanya sebelum dipetakan ke klaster.")
+            st.caption("Teks akan diproses, dicek konteks filtering mental health, lalu dicek cakupan kosakatanya sebelum dipetakan ke klaster.")
 
     if not run:
         html(
@@ -741,7 +794,7 @@ def page_input():
             <div class="card-html">
                 <div class="card-title">💡 Cara membaca hasil</div>
                 <div class="muted">
-                    Tulis teks, klik tombol <b>Lihat Klaster</b>. Aplikasi akan mengecek apakah kosakata input cukup dikenali oleh model. Jika tidak sesuai cakupan data, klaster tidak akan dipaksakan keluar.
+                    Tulis teks, klik tombol <b>Lihat Klaster</b>. Aplikasi akan mengecek apakah input sesuai konteks filtering mental health dan kosakatanya cukup dikenali model. Jika tidak sesuai cakupan data, klaster tidak akan dipaksakan keluar.
                 </div>
             </div>
             """
@@ -756,24 +809,25 @@ def page_input():
         cluster_id, normalized, tokens, raw_scores, scores, diagnostics = predict_cluster(text)
 
     if cluster_id is None:
-        st.error("Data belum dapat dipetakan karena kata-kata pada teks berada di luar kosakata model atau terlalu sedikit yang dikenali.")
+        st.error("Data belum dapat dipetakan karena teks tidak sesuai konteks filtering penelitian atau kosakatanya terlalu sedikit dikenali model.")
         col_a, col_b, col_c = st.columns(3)
         col_a.metric("Token setelah preprocessing", diagnostics["total_tokens"])
         col_b.metric("Token dikenali model", diagnostics["known_count"])
-        col_c.metric("Cakupan kosakata", f"{diagnostics['coverage']:.0%}")
+        col_c.metric("Keyword konteks", diagnostics["context_count"])
 
         html(
             """
             <div class="card-html" style="border-left:5px solid #ef4444;">
                 <div class="card-title">Batasan Pemetaan Data Baru</div>
                 <div class="muted">
-                    Input baru hanya dapat dipetakan jika masih berasal dari domain/populasi yang sama dengan data penelitian dan kosakatanya cukup dikenali oleh Word2Vec. Jika data baru akan dijadikan bagian dari analisis clustering, proses penelitian perlu dijalankan ulang dari preprocessing, pembentukan vektor, PCA, sampai K-Means agar centroid dan hasil klaster menyesuaikan data terbaru.
+                    Input baru hanya dapat dipetakan jika lolos filtering konteks mental health, masih berasal dari domain/populasi yang sama dengan data penelitian, dan kosakatanya cukup dikenali oleh Word2Vec. Jika data baru akan dijadikan bagian dari analisis clustering, proses penelitian perlu dijalankan ulang dari preprocessing, pembentukan vektor, PCA, sampai K-Means agar centroid dan hasil klaster menyesuaikan data terbaru.
                 </div>
             </div>
             """
         )
         with st.expander("Lihat token hasil preprocessing"):
             st.write("Teks normalisasi:", normalized if normalized else "Tidak ada token setelah preprocessing.")
+            st.write("Keyword konteks ditemukan:", diagnostics["context_matches"] or "Tidak ada")
             st.write("Token dikenali model:", diagnostics["known_tokens"] or "Tidak ada")
             st.write("Token di luar kosakata model:", diagnostics["unknown_tokens"] or "Tidak ada")
         return
@@ -804,7 +858,7 @@ def page_input():
                 st.markdown(f"**Cluster {cid}** · {pct:.0%}")
                 st.progress(pct)
 
-            st.caption(f"Kosakata dikenali model: {diagnostics['known_count']}/{diagnostics['total_tokens']} token ({diagnostics['coverage']:.0%}).")
+            st.caption(f"Keyword konteks ditemukan: {diagnostics['context_count']}. Kosakata dikenali model: {diagnostics['known_count']}/{diagnostics['total_tokens']} token ({diagnostics['coverage']:.0%}).")
             with st.expander("Lihat pengecekan input"):
                 st.write("Teks normalisasi:", normalized if normalized else "Tidak ada token yang cocok setelah preprocessing.")
                 st.write("Token dikenali model:", diagnostics["known_tokens"] or "Tidak ada")
