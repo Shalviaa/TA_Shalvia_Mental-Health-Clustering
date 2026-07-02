@@ -29,7 +29,7 @@ VECTOR_PATH = DATA_DIR / "w2v_vectors_pca100.npz"
 
 # =========================
 # CONTENT CONFIG
-# Minimal version: cluster detail hanya ditampilkan di Input setelah klik tombol dan di Hasil Penelitian.
+# Dashboard menampilkan hasil segmentasi dan visual analytics dari data penelitian.
 # =========================
 CLUSTER_INFO = {
     0: {
@@ -92,8 +92,8 @@ RESEARCH_INFO = {
 }
 
 DISCLAIMER = (
-    "Hasil pemetaan ini bukan diagnosis klinis dan tidak dapat menggantikan pemeriksaan oleh psikolog atau psikiater. "
-    "Aplikasi hanya menunjukkan kemiripan pola teks dengan klaster yang terbentuk dalam penelitian."
+    "Hasil segmentasi ini bukan diagnosis klinis dan tidak dapat menggantikan pemeriksaan oleh psikolog atau psikiater. "
+    "Dashboard hanya menampilkan ringkasan visual analytics dari klaster yang terbentuk dalam penelitian."
 )
 
 RESULT_NOTE = "Catatan ini bukan diagnosis klinis dan bukan pengganti konsultasi dengan psikolog atau psikiater."
@@ -468,13 +468,13 @@ def render_sidebar():
     st.sidebar.markdown(
         """
         <div class="sidebar-title">Mental Health<br/>Clustering</div>
-        <div class="sidebar-subtitle">Demo interaktif hasil penelitian clustering teks kesehatan mental.</div>
+        <div class="sidebar-subtitle">Dashboard segmentasi dan visual analytics hasil penelitian clustering teks kesehatan mental.</div>
         """,
         unsafe_allow_html=True,
     )
     page = st.sidebar.radio(
         "Menu",
-        ["Input Teks", "Hasil Penelitian", "Informasi Penelitian"],
+        ["Dashboard Segmentasi", "Informasi Penelitian"],
         label_visibility="collapsed",
     )
     st.sidebar.markdown("---")
@@ -781,127 +781,6 @@ def style_plotly(fig, height=380):
 # =========================
 # PAGES
 # =========================
-def page_input():
-    df = load_cluster_data()
-    render_hero(
-        "Pemetaan Teks ke Klaster Gejala Kesehatan Mental",
-        "Masukkan teks curahan hati. Sistem akan mengecek kosakata model terlebih dahulu, lalu menampilkan pemetaan kemiripan ke klaster hasil penelitian jika input masih sesuai cakupan data.",
-    )
-    render_disclaimer()
-
-    total_data = len(df)
-    html(
-        f"""
-        <div class="stat-grid">
-            <div class="stat-card"><div class="stat-label">Data Final</div><div class="stat-value">{total_data:,} teks</div></div>
-            <div class="stat-card"><div class="stat-label">Jumlah Klaster</div><div class="stat-value">3 klaster</div></div>
-            <div class="stat-card"><div class="stat-label">Metode</div><div class="stat-value">Word2Vec · PCA · K-Means</div></div>
-        </div>
-        """
-    )
-
-    with st.container(border=True):
-        st.subheader("Coba Masukkan Teks")
-        text = st.text_area(
-            "Teks pengguna",
-            value="",
-            placeholder="Contoh: Saya sering merasa cemas, sulit tidur, napas terasa sesak, dan badan terasa lemas.",
-            height=150,
-            label_visibility="collapsed",
-        )
-        col_btn, col_hint = st.columns([1, 3])
-        with col_btn:
-            run = st.button("Lihat Klaster", type="primary", use_container_width=True)
-        with col_hint:
-            st.caption("Teks akan diproses, dicek konteks filtering mental health, lalu dicek cakupan kosakatanya sebelum dipetakan ke klaster.")
-
-    if not run:
-        html(
-            """
-            <div class="card-html">
-                <div class="card-title">💡 Cara membaca hasil</div>
-                <div class="muted">
-                    Tulis teks, klik tombol <b>Lihat Klaster</b>. Aplikasi akan mengecek apakah input sesuai konteks filtering mental health dan kosakatanya cukup dikenali model. Jika tidak sesuai cakupan data, klaster tidak akan dipaksakan keluar.
-                </div>
-            </div>
-            """
-        )
-        return
-
-    if not text.strip():
-        st.warning("Masukkan teks terlebih dahulu sebelum melihat klaster.")
-        return
-
-    with st.spinner("Memproses teks dan menghitung kemiripan klaster..."):
-        cluster_id, normalized, tokens, raw_scores, scores, diagnostics = predict_cluster(text)
-
-    if cluster_id is None:
-        st.error("Data belum dapat dipetakan karena teks tidak sesuai konteks filtering penelitian atau kosakatanya terlalu sedikit dikenali model.")
-        col_a, col_b, col_c = st.columns(3)
-        col_a.metric("Token setelah preprocessing", diagnostics["total_tokens"])
-        col_b.metric("Token dikenali model", diagnostics["known_count"])
-        col_c.metric("Keyword konteks", diagnostics["context_count"])
-
-        html(
-            """
-            <div class="card-html" style="border-left:5px solid #ef4444;">
-                <div class="card-title">Batasan Pemetaan Data Baru</div>
-                <div class="muted">
-                    Input baru hanya dapat dipetakan jika lolos filtering konteks mental health, masih berasal dari domain/populasi yang sama dengan data penelitian, dan kosakatanya cukup dikenali oleh Word2Vec. Jika data baru akan dijadikan bagian dari analisis clustering, proses penelitian perlu dijalankan ulang dari preprocessing, pembentukan vektor, PCA, sampai K-Means agar centroid dan hasil klaster menyesuaikan data terbaru.
-                </div>
-            </div>
-            """
-        )
-        with st.expander("Lihat token hasil preprocessing"):
-            st.write("Teks normalisasi:", normalized if normalized else "Tidak ada token setelah preprocessing.")
-            st.write("Keyword konteks ditemukan:", diagnostics["context_matches"] or "Tidak ada")
-            st.write("Token dikenali model:", diagnostics["known_tokens"] or "Tidak ada")
-            st.write("Token di luar kosakata model:", diagnostics["unknown_tokens"] or "Tidak ada")
-        return
-
-    info = CLUSTER_INFO[cluster_id]
-    html(
-        f"""
-        <div class="result-card">
-            <div class="result-kicker">Hasil Pemetaan</div>
-            <div class="result-title" style="color:{info['color']};">
-                Cluster {cluster_id} <span class="success-chip">Paling Sesuai</span>
-            </div>
-            <h3>{info['title']}</h3>
-            <div class="muted">{info['description']}</div>
-            <div style="margin-top:1rem;">
-                {''.join([f'<span class="pill">{kw}</span>' for kw in info['keywords']])}
-            </div>
-        </div>
-        """
-    )
-
-    col_left, col_right = st.columns([1.05, 1])
-    with col_left:
-        with st.container(border=True):
-            st.subheader("Skor Kesesuaian")
-            for cid in sorted(scores):
-                pct = max(0, min(1, scores[cid]))
-                st.markdown(f"**Cluster {cid}** · {pct:.0%}")
-                st.progress(pct)
-
-            st.caption(f"Keyword konteks ditemukan: {diagnostics['context_count']}. Kosakata dikenali model: {diagnostics['known_count']}/{diagnostics['total_tokens']} token ({diagnostics['coverage']:.0%}).")
-            with st.expander("Lihat pengecekan input"):
-                st.write("Teks normalisasi:", normalized if normalized else "Tidak ada token yang cocok setelah preprocessing.")
-                st.write("Token dikenali model:", diagnostics["known_tokens"] or "Tidak ada")
-                st.write("Token di luar kosakata model:", diagnostics["unknown_tokens"] or "Tidak ada")
-
-    with col_right:
-        html(
-            f"""
-            <div class="card-html" style="border-left:5px solid {info['color']};">
-                <div class="card-title">Catatan</div>
-                <div class="muted">{RESULT_NOTE}<br><br>Hasil ini hanya menunjukkan kemiripan teks terhadap klaster yang sudah terbentuk. Jika ada tambahan data baru untuk dianalisis sebagai dataset penelitian, seluruh pipeline perlu dijalankan ulang agar tidak terjadi pergeseran centroid dan hasil klaster.</div>
-            </div>
-            """
-        )
-
-
 def render_cluster_overview():
     html('<div class="card-html"><div class="card-title">🧩 Ringkasan Tiga Klaster</div><div class="muted">Setiap klaster merupakan hasil interpretasi dari pola teks yang terbentuk pada penelitian.</div></div>')
     cols = st.columns(3)
@@ -924,14 +803,25 @@ def render_cluster_overview():
 
 def page_results():
     render_hero(
-        "Hasil Penelitian",
-        "Ringkasan visualisasi, metrik evaluasi, bigram dominan, dan interpretasi validasi dalam satu tampilan ringkas.",
-        "Dashboard Penelitian",
+        "Dashboard Segmentasi dan Visual Analytics",
+        "Ringkasan hasil segmentasi dataset penelitian, metrik evaluasi, sebaran PCA, bigram dominan, dan interpretasi validasi psikolog.",
+        "Hasil Segmentasi",
     )
 
     df = load_cluster_data()
     plot_df, metrics_df = compute_visual_data()
     counts = df["cluster"].value_counts().sort_index()
+
+    html(
+        """
+        <div class="card-html" style="border-left:5px solid #2563eb;">
+            <div class="card-title">Ruang Lingkup Dashboard</div>
+            <div class="muted">
+                Dashboard ini hanya menampilkan hasil segmentasi pada dataset penelitian yang sudah diproses. Tidak ada fitur input data baru, karena clustering bersifat deskriptif dan hasil klaster dapat berubah jika data baru dimasukkan ke proses analisis.
+            </div>
+        </div>
+        """
+    )
 
     html(
         f"""
@@ -1018,7 +908,7 @@ def page_results():
 def page_about():
     render_hero(
         "Informasi Penelitian",
-        "Informasi singkat mengenai Tugas Akhir, metode yang digunakan, dan tujuan aplikasi sebagai media demonstrasi hasil clustering.",
+        "Informasi singkat mengenai Tugas Akhir, metode yang digunakan, dan batasan dashboard sebagai visualisasi hasil segmentasi penelitian.",
         "Informasi Tugas Akhir",
     )
 
@@ -1055,7 +945,7 @@ def page_about():
             <div class="card-html">
                 <div class="card-title">🎯 Tujuan Aplikasi</div>
                 <div class="muted">
-                    Aplikasi ini digunakan sebagai media demonstrasi hasil penelitian. Pengguna dapat memasukkan teks, melihat klaster yang paling sesuai, mengeksplorasi visualisasi hasil klastering, dan membaca ringkasan validasi psikolog.
+                    Dashboard ini digunakan sebagai media visualisasi hasil penelitian. Pengguna dapat melihat ringkasan segmentasi dataset, metrik evaluasi, visualisasi PCA, bigram dominan, dan ringkasan validasi psikolog tanpa memasukkan data baru.
                 </div>
             </div>
             """
@@ -1066,7 +956,7 @@ def page_about():
         <div class="card-html">
             <div class="card-title">⚠️ Batasan Aplikasi</div>
             <div class="muted">
-                Aplikasi ini bukan alat diagnosis. Hasil yang ditampilkan hanya menunjukkan kemiripan teks dengan pola klaster pada data penelitian. Interpretasi klinis tetap memerlukan evaluasi psikolog atau psikiater.
+                Dashboard ini bukan alat diagnosis dan tidak digunakan untuk memprediksi data baru. Hasil yang ditampilkan hanya menggambarkan pola klaster pada dataset penelitian. Interpretasi klinis tetap memerlukan evaluasi psikolog atau psikiater.
             </div>
         </div>
         """
@@ -1078,11 +968,9 @@ def page_about():
 # =========================
 page = render_sidebar()
 
-if page == "Input Teks":
-    page_input()
-elif page == "Hasil Penelitian":
+if page == "Dashboard Segmentasi":
     page_results()
 elif page == "Informasi Penelitian":
     page_about()
 else:
-    page_about()
+    page_results()
