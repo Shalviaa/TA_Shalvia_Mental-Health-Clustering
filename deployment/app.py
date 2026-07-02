@@ -101,18 +101,6 @@ RESULT_NOTE = "Catatan ini bukan diagnosis klinis dan bukan pengganti konsultasi
 MIN_KNOWN_TOKENS = 2
 MIN_VOCAB_COVERAGE = 0.30
 MIN_CONTEXT_MATCHES = 1
-HIGH_RISK_TERMS = [
-    "bunuh diri",
-    "mencoba bunuh diri",
-    "percobaan bunuh diri",
-    "ingin mati",
-    "berharap mati",
-    "mengakhiri hidup",
-    "mengakhiri semuanya",
-    "menyakiti diri",
-    "menyakiti diri sendiri",
-    "self harm",
-]
 
 # =========================
 # STREAMLIT CONFIG & STYLE
@@ -615,20 +603,6 @@ def preprocess_text(text):
     return " ".join(words), words
 
 
-def normalized_phrase_text(text):
-    return " ".join(clean_words(text, remove_stopwords=False))
-
-
-def detect_high_risk_terms(text):
-    phrase_text = f" {normalized_phrase_text(text)} "
-    matches = []
-    for term in HIGH_RISK_TERMS:
-        normalized_term = normalized_phrase_text(term)
-        if normalized_term and f" {normalized_term} " in phrase_text:
-            matches.append(term)
-    return sorted(set(matches))
-
-
 def document_vector(tokens, vocab, vectors):
     rows = [vectors[vocab[word]] for word in tokens if word in vocab]
     if not rows:
@@ -678,9 +652,7 @@ def input_diagnostics(tokens, vocab, original_text=""):
     joined = f" {' '.join(tokens)} "
     context_keywords = load_context_keywords()
     context_matches = sorted([kw for kw in context_keywords if f" {kw} " in joined])
-    high_risk_matches = detect_high_risk_terms(original_text)
     context_ok = len(context_matches) >= MIN_CONTEXT_MATCHES
-    risk_ok = len(high_risk_matches) > 0
     vocab_ok = len(known_tokens) >= MIN_KNOWN_TOKENS and coverage >= MIN_VOCAB_COVERAGE
 
     return {
@@ -692,12 +664,9 @@ def input_diagnostics(tokens, vocab, original_text=""):
         "coverage": coverage,
         "context_matches": context_matches,
         "context_count": len(context_matches),
-        "high_risk_matches": high_risk_matches,
-        "high_risk_count": len(high_risk_matches),
         "context_ok": context_ok,
-        "risk_ok": risk_ok,
         "vocab_ok": vocab_ok,
-        "is_mappable": (context_ok and vocab_ok) or risk_ok,
+        "is_mappable": context_ok and vocab_ok,
     }
 
 
@@ -844,7 +813,7 @@ def page_input():
         col_a, col_b, col_c = st.columns(3)
         col_a.metric("Token setelah preprocessing", diagnostics["total_tokens"])
         col_b.metric("Token dikenali model", diagnostics["known_count"])
-        col_c.metric("Keyword konteks", diagnostics["context_count"] + diagnostics["high_risk_count"])
+        col_c.metric("Keyword konteks", diagnostics["context_count"])
 
         html(
             """
@@ -859,7 +828,6 @@ def page_input():
         with st.expander("Lihat token hasil preprocessing"):
             st.write("Teks normalisasi:", normalized if normalized else "Tidak ada token setelah preprocessing.")
             st.write("Keyword konteks ditemukan:", diagnostics["context_matches"] or "Tidak ada")
-            st.write("Frasa risiko tinggi ditemukan:", diagnostics["high_risk_matches"] or "Tidak ada")
             st.write("Token dikenali model:", diagnostics["known_tokens"] or "Tidak ada")
             st.write("Token di luar kosakata model:", diagnostics["unknown_tokens"] or "Tidak ada")
         return
@@ -890,10 +858,9 @@ def page_input():
                 st.markdown(f"**Cluster {cid}** · {pct:.0%}")
                 st.progress(pct)
 
-            st.caption(f"Keyword konteks ditemukan: {diagnostics['context_count'] + diagnostics['high_risk_count']}. Kosakata dikenali model: {diagnostics['known_count']}/{diagnostics['total_tokens']} token ({diagnostics['coverage']:.0%}).")
+            st.caption(f"Keyword konteks ditemukan: {diagnostics['context_count']}. Kosakata dikenali model: {diagnostics['known_count']}/{diagnostics['total_tokens']} token ({diagnostics['coverage']:.0%}).")
             with st.expander("Lihat pengecekan input"):
                 st.write("Teks normalisasi:", normalized if normalized else "Tidak ada token yang cocok setelah preprocessing.")
-                st.write("Frasa risiko tinggi ditemukan:", diagnostics["high_risk_matches"] or "Tidak ada")
                 st.write("Token dikenali model:", diagnostics["known_tokens"] or "Tidak ada")
                 st.write("Token di luar kosakata model:", diagnostics["unknown_tokens"] or "Tidak ada")
 
