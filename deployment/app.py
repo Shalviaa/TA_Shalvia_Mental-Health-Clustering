@@ -569,13 +569,13 @@ def load_context_keywords():
 
     single_terms = set()
     for keyword in raw_keywords:
-        words = clean_words(keyword, remove_stopwords=True)
-        if len(words) == 1 and len(clean_words(keyword, remove_stopwords=False)) == 1:
+        words = normalize_context_aliases(clean_words(keyword, remove_stopwords=True))
+        if len(words) == 1 and len(normalize_context_aliases(clean_words(keyword, remove_stopwords=False))) == 1:
             single_terms.add(words[0])
 
     context_keywords = set()
     for keyword in raw_keywords:
-        words = clean_words(keyword, remove_stopwords=True)
+        words = normalize_context_aliases(clean_words(keyword, remove_stopwords=True))
         if len(words) > 1:
             context_keywords.add(" ".join(words))
         elif len(words) == 1 and words[0] in single_terms:
@@ -583,7 +583,7 @@ def load_context_keywords():
 
     for info in CLUSTER_INFO.values():
         for keyword in info["keywords"]:
-            words = clean_words(keyword, remove_stopwords=True)
+            words = normalize_context_aliases(clean_words(keyword, remove_stopwords=True))
             if len(words) > 1:
                 context_keywords.add(" ".join(words))
             elif len(words) == 1 and words[0] in single_terms:
@@ -601,6 +601,32 @@ def normalize_repeated_letters(word):
 def preprocess_text(text):
     words = clean_words(text, remove_stopwords=True)
     return " ".join(words), words
+
+
+def normalize_context_aliases(words):
+    aliases = {
+        "stress": "stres",
+        "stresss": "stres",
+        "stres": "stres",
+        "depresi": "depresi",
+    }
+    return [aliases.get(word, word) for word in words]
+
+
+def context_words(text):
+    master, stopwords = load_kamus()
+    text = str(text).lower()
+    text = re.sub(r"http\S+|www\S+", " ", text)
+    text = re.sub(r"@\w+", " ", text)
+    text = re.sub(r"#", "", text)
+    text = re.sub(r"<.*?>", " ", text)
+    text = re.sub(r"\d+", " ", text)
+    text = text.translate(str.maketrans({ch: " " for ch in string.punctuation}))
+    text = re.sub(r"[^\x00-\x7F]", " ", text)
+    words = [normalize_repeated_letters(w) for w in text.split()]
+    words = [master.get(w, w) for w in words]
+    words = normalize_context_aliases(words)
+    return [w for w in words if w not in stopwords and len(w) > 2]
 
 
 def document_vector(tokens, vocab, vectors):
@@ -649,7 +675,8 @@ def input_diagnostics(tokens, vocab, original_text=""):
     total = len(tokens)
     coverage = len(known_tokens) / total if total else 0.0
 
-    joined = f" {' '.join(tokens)} "
+    context_tokens = list(dict.fromkeys(tokens + context_words(original_text)))
+    joined = f" {' '.join(context_tokens)} "
     context_keywords = load_context_keywords()
     context_matches = sorted([kw for kw in context_keywords if f" {kw} " in joined])
     context_ok = len(context_matches) >= MIN_CONTEXT_MATCHES
