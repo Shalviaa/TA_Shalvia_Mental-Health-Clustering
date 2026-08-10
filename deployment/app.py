@@ -29,7 +29,7 @@ VECTOR_PATH = DATA_DIR / "w2v_vectors_pca100.npz"
 
 # =========================
 # CONTENT CONFIG
-# Dashboard menampilkan hasil segmentasi dan visual analytics dari data penelitian.
+# Visualisasi menampilkan hasil klasterisasi dari data penelitian.
 # =========================
 CLUSTER_INFO = {
     0: {
@@ -93,7 +93,7 @@ RESEARCH_INFO = {
 
 DISCLAIMER = (
     "Hasil segmentasi ini bukan diagnosis klinis dan tidak dapat menggantikan pemeriksaan oleh psikolog atau psikiater. "
-    "Dashboard hanya menampilkan ringkasan visual analytics dari klaster yang terbentuk dalam penelitian."
+    "Visualisasi hanya menampilkan ringkasan hasil klaster yang terbentuk dalam penelitian."
 )
 
 RESULT_NOTE = "Catatan ini bukan diagnosis klinis dan bukan pengganti konsultasi dengan psikolog atau psikiater."
@@ -468,13 +468,13 @@ def render_sidebar():
     st.sidebar.markdown(
         """
         <div class="sidebar-title">Mental Health<br/>Clustering</div>
-        <div class="sidebar-subtitle">Dashboard segmentasi dan visual analytics hasil penelitian clustering teks kesehatan mental.</div>
+        <div class="sidebar-subtitle">Visualisasi hasil klasterisasi penelitian clustering teks kesehatan mental.</div>
         """,
         unsafe_allow_html=True,
     )
     page = st.sidebar.radio(
         "Menu",
-        ["Dashboard Segmentasi", "Informasi Penelitian"],
+        ["Visualisasi Hasil Klasterisasi", "Informasi Penelitian"],
         label_visibility="collapsed",
     )
     st.sidebar.markdown("---")
@@ -803,7 +803,7 @@ def render_cluster_overview():
 
 def page_results():
     render_hero(
-        "Dashboard Segmentasi dan Visual Analytics",
+        "Visualisasi Hasil Klasterisasi",
         "Ringkasan hasil segmentasi dataset penelitian, metrik evaluasi, sebaran PCA, bigram dominan, dan interpretasi validasi psikolog.",
         "Hasil Segmentasi",
     )
@@ -815,9 +815,9 @@ def page_results():
     html(
         """
         <div class="card-html" style="border-left:5px solid #2563eb;">
-            <div class="card-title">Ruang Lingkup Dashboard</div>
+            <div class="card-title">Ruang Lingkup Visualisasi</div>
             <div class="muted">
-                Dashboard ini hanya menampilkan hasil segmentasi pada dataset penelitian yang sudah diproses. Tidak ada fitur input data baru, karena clustering bersifat deskriptif dan hasil klaster dapat berubah jika data baru dimasukkan ke proses analisis.
+                Visualisasi ini hanya menampilkan hasil klasterisasi pada dataset penelitian yang sudah diproses. Tidak ada fitur input data baru, karena clustering bersifat deskriptif dan hasil klaster dapat berubah jika data baru dimasukkan ke proses analisis.
             </div>
         </div>
         """
@@ -908,7 +908,7 @@ def page_results():
 def page_about():
     render_hero(
         "Informasi Penelitian",
-        "Informasi singkat mengenai Tugas Akhir, metode yang digunakan, dan batasan dashboard sebagai visualisasi hasil segmentasi penelitian.",
+        "Informasi singkat mengenai Tugas Akhir, metode yang digunakan, dan batasan visualisasi hasil klasterisasi penelitian.",
         "Informasi Tugas Akhir",
     )
 
@@ -943,9 +943,9 @@ def page_about():
         html(
             """
             <div class="card-html">
-                <div class="card-title">🎯 Tujuan Aplikasi</div>
+                <div class="card-title">🎯 Tujuan Visualisasi</div>
                 <div class="muted">
-                    Dashboard ini digunakan sebagai media visualisasi hasil penelitian. Pengguna dapat melihat ringkasan segmentasi dataset, metrik evaluasi, visualisasi PCA, bigram dominan, dan ringkasan validasi psikolog tanpa memasukkan data baru.
+                    Visualisasi ini digunakan untuk menampilkan hasil penelitian. Pengguna dapat melihat ringkasan klasterisasi dataset, metrik evaluasi, visualisasi PCA, bigram dominan, dan ringkasan validasi psikolog tanpa memasukkan data baru.
                 </div>
             </div>
             """
@@ -954,9 +954,9 @@ def page_about():
     html(
         """
         <div class="card-html">
-            <div class="card-title">⚠️ Batasan Aplikasi</div>
+            <div class="card-title">⚠️ Batasan Visualisasi</div>
             <div class="muted">
-                Dashboard ini bukan alat diagnosis dan tidak digunakan untuk memprediksi data baru. Hasil yang ditampilkan hanya menggambarkan pola klaster pada dataset penelitian. Interpretasi klinis tetap memerlukan evaluasi psikolog atau psikiater.
+                Visualisasi ini bukan alat diagnosis dan tidak digunakan untuk memprediksi data baru. Hasil yang ditampilkan hanya menggambarkan pola klaster pada dataset penelitian. Interpretasi klinis tetap memerlukan evaluasi psikolog atau psikiater.
             </div>
         </div>
         """
@@ -968,7 +968,7 @@ def page_about():
 # =========================
 page = render_sidebar()
 
-if page == "Dashboard Segmentasi":
+if page == "Visualisasi Hasil Klasterisasi":
     page_results()
 elif page == "Informasi Penelitian":
     page_about()
